@@ -163,7 +163,7 @@ plot_pred(pat_nb, Data_qua)
 
 
 #### DB OP3 : Data_5 ####
-pat_nb = 9
-plot_pred_op3_test(pat_nb, Data_qua)
-# plot_pred_op3(pat_nb, Data_5)
+pat_nb = 13
+# plot_pred_op3_test(pat_nb, Data_qua)
+plot_pred_op3(pat_nb, Data_5)
 

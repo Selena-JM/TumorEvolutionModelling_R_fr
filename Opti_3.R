@@ -390,5 +390,4 @@ plot_pred_op3_test = function(pat_nb, Data_qua){
          cex = 0.6,
          xpd=TRUE,
          inset = c(-0.25, 0))
-
 }
