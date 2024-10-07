@@ -32,7 +32,7 @@ add_pred_Data = function(Data, nb_points_omitted){
 compute_odes_op3 = function(pat_nb, Data, bounds, plot=FALSE){
   x1_low = bounds[1]
   p_min = bounds[2:7]
-  x1_upp = bounds[7]
+  x1_upp = bounds[8]
   p_max = bounds[9:14]
   
   # Parameters
@@ -135,8 +135,8 @@ opti3_pat = function(pat_nb, Data){
     y_upp = ODE_sol_upp[,3]
     
     # Interpolation
-    y_est_low <- spline(time, y_low, xout = time_pat)$y
-    y_est_upp <- spline(time, y_upp, xout = time_pat)$y
+    y_est_low = spline(time, y_low, xout = time_pat)$y
+    y_est_upp = spline(time, y_upp, xout = time_pat)$y
     
     #Cost function
     Cost = -y_est_upp[length(y_est_upp)] + y_est_low[length(y_est_low)]
@@ -248,7 +248,7 @@ plot_pred = function(pat_nb, Data){
   # plot environment
   par(mar = c(5, 5, 3, 6))
   plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb))
+       ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb), ylim=c(ymin, ymax))
   
   # Rectangle
   rect(xleft = x_col, ybottom = par("usr")[3], xright = par("usr")[2], 
@@ -279,14 +279,14 @@ plot_pred_op3 = function(pat_nb, Data){
   sorted_time_pat = sorted_time_pat/(max(sorted_time_pat) - min(sorted_time_pat))
   x_col = sorted_time_pat[length(sorted_time_pat)-Data$nb_points_omitted[pat_nb]+1]-0.01
   
-  ymax = max(max(Data$y_low[[pat_nb]]), max(Data$y_upp[[pat_nb]]), max(Data$y_pred[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymax = min(min(Data$y_low[[pat_nb]]), min(Data$y_upp[[pat_nb]]), min(Data$y_pred[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymax = max(max(Data$y_low[[pat_nb]]), max(Data$y_upp[[pat_nb]]), max(Data$y_pred[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9), max(Data$y_opt[[pat_nb]]))
+  ymin = min(min(Data$y_low[[pat_nb]]), min(Data$y_upp[[pat_nb]]), min(Data$y_pred[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9), min(Data$y_opt[[pat_nb]]))
   
   
   # plot environment
   par(mar = c(5, 5, 3, 6))
-  plot(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb))
+  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
+       ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb), ylim=c(ymin, ymax))
   
   
   # Rectangle
@@ -294,7 +294,8 @@ plot_pred_op3 = function(pat_nb, Data){
        ytop = par("usr")[4], col = rgb(0.9, 0.8, 0.8, 0.5), border = NA)
   
   # Plot 
-  lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], col = 'black')
+  lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], col = 'black')
+  lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], col = 'black', lty=4)
   lines(Data$time[[pat_nb]], Data$y_low[[pat_nb]], col = 'red')
   lines(Data$time[[pat_nb]], Data$y_upp[[pat_nb]], col = 'blue')
   
@@ -303,10 +304,10 @@ plot_pred_op3 = function(pat_nb, Data){
   
   # legend
   legend("topright", 
-         legend = c("y_pred", "y_low", "y_upp", "observations"), 
-         col = c("black", "red", "blue", "black"), 
-         lty = c(1, 1, 1, NA),   # lty=NA for observations
-         pch = c(NA, NA, NA, 1), # pch=1 for observations
+         legend = c("y_opt", "y_pred", "y_low", "y_upp", "observations"), 
+         col = c("black","black", "red", "blue", "black"), 
+         lty = c(1, 4, 1, 1, NA),   # lty=NA for observations
+         pch = c(NA, NA, NA, NA, 1), # pch=1 for observations
          cex = 0.6, 
          xpd=TRUE, 
          inset = c(-0.25, 0))
@@ -357,20 +358,23 @@ plot_pred_test = function(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500, pr
 }
 
 #plot op3 without data bases, for tests
-plot_pred_op3_test = function(pat_nb, Data_qua, sol){  
+plot_pred_op3_test = function(pat_nb, Data_qua){  
   
   result = opti3_pat(pat_nb, Data_qua)
   
   bounds = result$solution
   
   odes = compute_odes_op3(pat_nb, Data_qua, bounds, plot=FALSE)
-  y_pred = sol_pred$y
+  y_pred = Data_qua$y_pred[[pat_nb]]
   time = Data_qua$time[[pat_nb]]
   y_low = odes$y_low
   y_upp = odes$y_upp
   
+  ymax = max(max(y_low), max(y_upp), max(y_pred),max(Data_qua$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymin = min(min(y_low), min(y_upp), min(y_pred),min(Data_qua$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  
   plot(time, y_pred, type = 'l', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb))
+       ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb), ylim=c(ymin,ymax))
   lines(time, y_low, type = 'l', col = 'red')
   lines(time, y_upp, type = 'l', col = 'blue')
   

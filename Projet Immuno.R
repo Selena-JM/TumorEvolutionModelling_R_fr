@@ -153,18 +153,17 @@ plot_op1(pat_nb, Data_bis)
 boxplot_OP1(pat_nb, parameters_df)
 
 #### DB OP2 : Data_ter ####
-pat_nb = 5
+pat_nb = 9
 plot_op1_op2(pat_nb, Data_ter)
 
 #### Predictions : Data_qua ####
-pat_nb = 6
-sol_pred = plot_pred_test(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500)
-# plot_pred(pat_nb, Data_qua)
+pat_nb = 9
+plot_pred(pat_nb, Data_qua)
+# plot_pred_test(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500)
 
 
 #### DB OP3 : Data_5 ####
-pat_nb = 1
-# sol_pred = Data_qua$y_pred[[pat_nb]]
-plot_pred_op3_test(pat_nb, Data_qua, sol_pred)
+pat_nb = 9
+plot_pred_op3_test(pat_nb, Data_qua)
 # plot_pred_op3(pat_nb, Data_5)
 
