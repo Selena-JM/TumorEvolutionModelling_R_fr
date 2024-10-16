@@ -12,7 +12,9 @@ library("readxl")
 library("deSolve")
 library("nloptr")
 library("numDeriv")
+library("ggplot2")
 library("plotly")
+library("stats")
 
 # ---- Importing Data ----
 # Data imported from https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009822#pcbi.1009822.s006
@@ -109,19 +111,6 @@ save(Data, file="./Data_processed/Data.Rda")
 
 
 # ---- Data processing : building data bases ----
-#### Model definition : differential equations ####
-derive = function(t, var, para){
-  with(as.list(c(var, para)),{
-    
-    X = var[1]
-    Y = var[2]
-    
-    deriX = sigma + (rho*X*Y)/(eta+Y) - delta*X - mu*X*Y
-    deriY = alpha*Y - (10^(-2))*X*Y # E0/T0 = (10^7)/(10^9)
-    return(list(c(deriX, deriY)))
-  })
-}
-
 #### Optimization problem 1 : finding optimal parameters for each patient ####
 source("Opti_1.R")
 Data_bis = add_op1_Data(Data)
@@ -136,6 +125,7 @@ print(summary(GF$R2, rm.na=True))
 #### Optimization problem 2 : Parameter identifiability ####
 source("Opti_2.R")
 Data_ter = add_op2_Data(Data_bis)
+Data_ter_bis = add_op2_bis_Data(Data_ter_bis)
 
 #### Predictions ####
 source("Opti_3.R")
@@ -148,13 +138,22 @@ Data_5 = add_op3_Data(Data_qua)
 
 # ---- Tests ----
 #### DB OP1 : Data_bis ####
-pat_nb = 11
+pat_nb = 3
 plot_op1(pat_nb, Data_bis)
-boxplot_OP1(pat_nb, parameters_df)
+boxplot_OP1(parameters_df)
 
 #### DB OP2 : Data_ter ####
-pat_nb = 9
+pat_nb = 2
+
+# Plot curves 
 plot_op1_op2(pat_nb, Data_ter)
+plot_op1_op2_bis(pat_nb, Data_ter_bis, para=1)
+
+#plot parameter ranges for a patient
+plot_range_para(pat_nb, Data_ter_bis)
+
+#plot paramters histogram
+plot_histo(Data_ter_bis)
 
 #### Predictions : Data_qua ####
 pat_nb = 9
@@ -166,4 +165,32 @@ plot_pred(pat_nb, Data_qua)
 pat_nb = 13
 # plot_pred_op3_test(pat_nb, Data_qua)
 plot_pred_op3(pat_nb, Data_5)
+
+
+# ---- Global optimization ----
+source("Global_opti.R")
+bornes = global_opti(Data_ter)
+print(bornes)
+
+#creating data for clustering
+Data_clustering = clustering(Data_ter)
+row.names(Data_clustering) = 1:nrow(Data_clustering)
+
+set.seed(123)
+
+#### clustering kmeans ####
+kmeans_result = kmeans(Data_clustering[1:50,], centers = 10, nstart = 25)
+print(kmeans_result)
+
+plot_global(1, kmeans_result, Data_ter)
+
+plot_clusters(10, kmeans_result, Data_ter)
+
+#### hierarchical clustering ####
+distance_matrix = dist(Data_clustering[1:50,], method = "euclidean")
+
+hc_result = hclust(distance_matrix, method = "ward.D2")
+plot(hc_result, main="Patient Dendrogramme")
+
+cluster_hierarchical = cutree(hc_result, k = 5)
 

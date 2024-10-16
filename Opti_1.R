@@ -1,5 +1,6 @@
 #date:03/10/2024, author : Séléna Jean-Mactoux
 #Optimization pb 1 : Finding optimal parameters for each patient
+source("derive.R")
 
 # ---- Optimization pb 1 ----
 opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision = 10^(-8)){
@@ -58,7 +59,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
   # Computing of gradient
   gradient_OP1 <- function(parameters) {
     grad <- grad(func = f_minimize_OP1, x = parameters)
-    print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
+    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
     return(grad)
   }
   
@@ -87,7 +88,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
 
 
 # ---- Computing resulting functions : solve ode with the estimated parameters, given in result ----
-sol_opti1 = function(pat_nb, Data, parameters, plot=FALSE){
+sol_opti1 = function(pat_nb, Data, parameters){
   
   x1 = parameters[1]
   para <- list(sigma = parameters[2],
@@ -104,18 +105,13 @@ sol_opti1 = function(pat_nb, Data, parameters, plot=FALSE){
   
   #Initial conditions
   init = c("X"=x1, "Y"=TC_pat[1]/T0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
-  
+
   # Normalized time
   time_pat = time_pat/(max(time_pat) - min(time_pat))
   time = seq(from=min(time_pat), to=max(time_pat), by=0.01)
   
   #Solve differential equations
   sol = ode(y=init, times = time, func = derive, parms = para, method="bdf")
-  
-  if (plot == TRUE) {
-    plot(time, sol[,3], type = "l")
-    points(time_pat, TC_pat/T0)
-  }
   
   return(list(time=time, y=sol[,3], parameters=parameters))
 }
@@ -129,9 +125,8 @@ add_op1_Data = function(Data_preprocessed){
   Data_bis$y_opt = rep(NA,nb_pat)
   Data_bis$parameters_opt = rep(NA,nb_pat)
   
-  for (i in 1:50){ 
-    print("")
-    print(i)
+  for (i in 1:nb_pat){ 
+    print(paste("Patient ",i))
     result = opti1_pat(i, Data_bis)
     parameters = result$solution
     
@@ -148,9 +143,6 @@ add_op1_Data = function(Data_preprocessed){
 
 # ---- Goodness of fit analysis ----
 goodness_fit = function(pat_nb, Data){
-  
-  if (length(Data$time[[pat_nb]])>1){
-    
     T0 = 10^9
     TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
     y_obs = TC_pat/T0
@@ -173,22 +165,16 @@ goodness_fit = function(pat_nb, Data){
     
     # MSE
     mse = mean((y_obs - y_est)^2)
-    
+    return(list(MAE = mae,MSE = mse, R2 = r_squared))
   }
-  else {
-    r_squared = NA
-    mae = NA
-    mse = NA
-  }
-  return(list(MAE = mae,MSE = mse, R2 = r_squared))
-}
+
 
 goodness_fit_analysis = function(Data){
-  # for (i in 1:length(Data$Patient_Anonmyized)){
+
   parameters_df = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
   GF_df = data.frame(MAE = numeric(), MSE = numeric(), R2 = numeric())
   
-  for (i in 1:32){
+  for (i in 1:length(Data$Patient_Anonmyized)){
     
     GF_i = goodness_fit(i, Data)
     parameters_i = data.frame(x1=Data$parameters_opt[[i]][1], sigma=Data$parameters_opt[[i]][2], rho=Data$parameters_opt[[i]][3], eta=Data$parameters_opt[[i]][4], mu=Data$parameters_opt[[i]][5], delta=Data$parameters_opt[[i]][6], alpha=Data$parameters_opt[[i]][7])
@@ -205,11 +191,17 @@ goodness_fit_analysis = function(Data){
 # ---- Plotting results ----
 plot_op1 = function(pat_nb, Data){
   par(mar = c(5, 4, 4, 5.5))
-  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'l', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("OP1 results for patient :", pat_nb))
   
   time_pat = Data$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
+  
+  ymax = max(max(Data$y_opt[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymin = min(min(Data$y_opt[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  
+  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'l', col = 'black', xlab="Normalised time",
+       ylab="Nb of tumor cells / 10^9", main=paste("OP1 results for patient :", pat_nb), ylim=c(ymin,ymax))
+  
+  
   points(time_pat, Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
   
   legend("topright", 
@@ -222,7 +214,7 @@ plot_op1 = function(pat_nb, Data){
          inset = c(-0.25, 0)) 
 }
 
-boxplot_OP1 = function(pat_nb, parameters_opti1){
+boxplot_OP1 = function(parameters_opti1){
   par(mar = c(3, 5, 3, 6))
   boxplot(parameters_opti1$sigma, parameters_opti1$mu, parameters_opti1$delta, parameters_opti1$alpha, parameters_opti1$rho, parameters_opti1$eta, 
           names = c("sigma", "mu", "delta", "alpha", "rho", "eta"),

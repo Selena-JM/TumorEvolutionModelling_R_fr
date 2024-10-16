@@ -1,6 +1,8 @@
 #date:03/10/2024, author : Séléna Jean-Mactoux
 #Predictions & OP3: removing some points at the end and running OP1, then finding worst case scenarios for predictions
 
+source("derive.R")
+
 # ---- Building data base for predictions ----
 add_pred_Data = function(Data, nb_points_omitted){
   Data_qua = Data
