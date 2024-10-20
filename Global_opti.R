@@ -1,12 +1,10 @@
 # date:07/10/2024, author:Séléna Jean-Mactoux
+source("derive.R")
 
 # ---- Global parameters authentification ----
-global_opti = function(Data){
+interval_analysis = function(Data){
   nb_pat = length(Data$Patient_Anonmyized)
-  
-  # borne_min = sapply(1:nb_pat, function(i) {
-  #   max(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
-  # })
+
   borne_up_min = sapply(1:6, function(i) {
     max(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
   })
@@ -46,34 +44,169 @@ global_opti = function(Data){
 #We could try to identify clusters of patients for which the parameters are approximately the same
 
 #can use the mean between the min and max for each parameter for clustering
-clustering = function(Data){
+clustering_extremums = function(Data){
   nb_pat = length(Data$Patient_Anonmyized)
-  Data_clustering = matrix(NA, nrow = nb_pat, ncol=6)
+  Data_clustering = matrix(NA, nrow = nb_pat, ncol=13)
   for (pat in 1:nb_pat){
-    for (para in 1:6){
-      Data_clustering[pat,para] = (Data$parameters_min[[pat]][para]+Data$parameters_max[[pat]][para])/2
-    }
+    Data_clustering[pat,1] = pat
+    Data_clustering[pat,2:7] = Data$parameters_min[[pat]]
+    Data_clustering[pat,8:13] = Data$parameters_max[[pat]]
   }
+  indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
+  Data_clustering = Data_clustering[-indices_na,]
+  
+  #centrer et réduire les paramètres pour le clustering
+  Data_clustering[,2:13] = scale(Data_clustering[,2:13], center = TRUE, scale = TRUE)
+  
   return(Data_clustering)
 }
 
+#clustering with the 8 parameters (x1, parameters, Y0)
+clustering_para = function(Data){
+  nb_pat = length(Data$Patient_Anonmyized)
+  Data_clustering = matrix(NA, nrow = nb_pat, ncol=9)
+  for (pat in 1:nb_pat){
+    Data_clustering[pat,1] = pat
+    Data_clustering[pat,2:8] = Data$parameters_opt[[pat]]
+    Data_clustering[pat,9] = Data$TargetLesionLongDiam_mm[[pat]][1]/10^9
+  }
 
-plot_global = function(pat_nb, kmeans_result, Data){
-  cluster_pat = kmeans_result$cluster[pat_nb]
-  x1 = Data$parameters_opt[[pat_nb]][1]
-  parameters = c(x1, kmeans_result$centers[cluster_pat, ])
+  #centrer et réduire les paramètres pour le clustering
+  Data_clustering[,2:9] = scale(Data_clustering[,2:9], center = TRUE, scale = TRUE)
+  return(Data_clustering)
+}
+
+#clustering with the curves
+clustering_curves = function(Data){
+  nb_pat = length(Data$Patient_Anonmyized)
+  time_cluster = seq(from=0.05, to=0.95, by=0.01) 
   
-  sol = sol_opti1(pat_nb, Data, parameters)
+  Data_clustering = matrix(NA, nrow = nb_pat, ncol=length(time_cluster)+1)
+  for (pat in 1:nb_pat){
+    if (length(which(is.na(Data$time[[pat]]))) == 0){
+      Data_clustering[pat,1] = pat
+      Data_clustering[pat,2:(length(time_cluster)+1)] = spline(Data$time[[pat]], Data$y_opt[[pat]], xout = time_cluster)$y
+    }
+  }
+  indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
+  Data_clustering = Data_clustering[-indices_na,]
+  #centrer et réduire les paramètres pour le clustering
+  Data_clustering[,2:(length(time_cluster)+1)] = scale(Data_clustering[,2:(length(time_cluster)+1)], center = TRUE, scale = TRUE)
+  
+  return(Data_clustering)
+}
+
+# ---- Cluster analysis ----
+# analyzing the means, median and std of each cluster, to get the parameters 
+# for the cluster curve
+cluster_analysis = function(cluster_hierarchical, nb_clusters, Data_clustering, Data_ter_bis){
+  cluster_means = matrix(NA, nrow=nb_clusters, ncol=7)
+  cluster_std = matrix(NA, nrow=nb_clusters, ncol=7)
+  cluster_median = matrix(NA, nrow=nb_clusters, ncol=7)
+  cluster_Y0 = rep(NA, nb_clusters)
+  
+  for (i in 1:nb_clusters){
+    indices = Data_clustering[unique(which(cluster_hierarchical==i)),1]
+    parameters = matrix(NA, nrow = length(indices), ncol = 7) #contains the parameters for each patients
+    lY0 = rep(NA, length(indices))
+    for (j in 1:length(indices)){
+      parameters[j,] = Data_ter_bis$parameters_opt[[indices[j]]]
+      lY0[j] = Data_ter_bis$TargetLesionLongDiam_mm[[indices[j]]][1]/10^9
+    }
+    
+    cluster_means[i,] = apply(parameters, 2, function(col) mean(col, na.rm=TRUE))
+    cluster_median[i,] = apply(parameters, 2, function(col) median(col, na.rm=TRUE))
+    cluster_std[i,] = apply(parameters, 2, function(col) sd(col, na.rm=TRUE))
+    cluster_Y0[i] = mean(lY0)
+  }
+  return(list(cluster_means=cluster_means, cluster_std=cluster_std, cluster_median=cluster_median, cluster_Y0=cluster_Y0))
+}
+
+global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, maxeval=500, precision = 10^(-8)){
+  T0 = 10^9
+
+  f_minimize_global = function(parameters) {
+    # Parameters
+    x1 = parameters[1]
+    para <- list(
+      sigma = parameters[2],
+      rho = parameters[3],
+      eta = parameters[4],
+      mu = parameters[5],
+      delta = parameters[6],
+      alpha = parameters[7])
+    Y0 = parameters[8]
+    
+    #Initial conditions
+    init = c("X"=x1, "Y"=Y0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
+    
+    # Normalised time
+    time_cluster = seq(from=0.05, to=0.95, by=0.01) #*(max(time_pat)-min(time_pat))
+    
+    
+    #Solve differential equations
+    ODE_sol = ode(y=init, times = time_cluster, func = derive, parms = para, method="bdf")
+    y_cluster = ODE_sol[,3]
+    
+    ## Find the right value for the comparison in cost function
+    # Interpolation
+    indices = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]
+    y_pat = matrix(NA, nrow=length(indices), ncol=length(time_cluster))
+    y_err = matrix(NA, length(indices))
+    for (pat in 1:length(indices)){
+      y_pat[pat,] = spline(Data$time[[indices[pat]]], Data$y_opt[[indices[pat]]], xout = time_cluster)$y
+      y_err[pat] = sum((y_pat[pat,] - y_cluster)^2)
+    }
+    
+    #Cost function
+    Cost = sum(y_err) 
+    return(Cost)
+  }
+  
+  
+  # Computing of gradient
+  gradient_global <- function(parameters) {
+    grad <- grad(func = f_minimize_global, x = parameters)
+    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
+    return(grad)
+  }
+  
+  # Limits for x1 and parameters
+  lower_bounds <- c(10^(-2), rep(c(10^(-2)), 6), 10^(-2))
+  upper_bounds <- c(10^2, rep(c(10^2), 6), 10^2) 
+  
+  #Starting values for the parameter optimization
+  start_para = c("x1" = 1, "sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1, "Y0"=1)
+  # start_para = c("x1" = 10, "sigma" = 0.1, "rho" = 1, "eta" = 0.01, "mu" = 1, "delta" = 0.1, "alpha" = 0.01)
+  # start_para = c("x1" = 100, "sigma" = 100, "rho" = 100, "eta" = 1, "mu" = 10, "delta" = 10, "alpha" = 1)
+  
+  # Optimization
+  result <- nloptr(
+    x0 = start_para,
+    eval_f = f_minimize_global,
+    eval_grad_f = gradient_global, # Using the defined gradient
+    lb = lower_bounds,
+    ub = upper_bounds,
+    opts = list("algorithm" = "NLOPT_LD_SLSQP", "xtol_rel" = precision, "maxeval"=maxeval, print_level = 1) #NLOPT_LD_MMA, NLOPT_LD_SLSQP
+  )
+  
+  # print(result)
+  return(result)
+}
+# ---- Plotting results ----
+plot_cluster_curve = function(pat_nb, parameters, Data, Y0=NA){
+  
+  sol = sol_opti1(pat_nb, Data, parameters, Y0)
   time = sol$time
   y = sol$y
   
-  par(mar = c(5, 4, 4, 5.5))
+  par(mar = c(5, 4, 4, 5))
   
   time_pat = Data$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
   
   ymax = max(max(y), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymin = min(min(time), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymin = min(min(y), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   
   plot(time, y, type = 'l', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("Global opti results for patient :", pat_nb), ylim=c(ymin,ymax))

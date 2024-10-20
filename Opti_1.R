@@ -88,7 +88,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
 
 
 # ---- Computing resulting functions : solve ode with the estimated parameters, given in result ----
-sol_opti1 = function(pat_nb, Data, parameters){
+sol_opti1 = function(pat_nb, Data, parameters, Y0 = NA){
   
   x1 = parameters[1]
   para <- list(sigma = parameters[2],
@@ -103,8 +103,12 @@ sol_opti1 = function(pat_nb, Data, parameters){
   TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
   time_pat = Data$Treatment_Day[[pat_nb]]
   
+  if (is.na(Y0)){
+    Y0 = TC_pat[1]/T0
+  }
+  
   #Initial conditions
-  init = c("X"=x1, "Y"=TC_pat[1]/T0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
+  init = c("X"=x1, "Y"=Y0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
 
   # Normalized time
   time_pat = time_pat/(max(time_pat) - min(time_pat))
@@ -172,7 +176,14 @@ goodness_fit = function(pat_nb, Data){
 goodness_fit_analysis = function(Data){
 
   parameters_df = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  parameters_df_1 = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  parameters_df_2 = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  parameters_df_3 = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  parameters_df_4 = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  parameters_df_5 = data.frame(x1=numeric(), sigma=numeric(), rho=numeric(), eta=numeric(), mu=numeric(), delta=numeric(), alpha=numeric())
+  
   GF_df = data.frame(MAE = numeric(), MSE = numeric(), R2 = numeric())
+  
   
   for (i in 1:length(Data$Patient_Anonmyized)){
     
@@ -182,15 +193,23 @@ goodness_fit_analysis = function(Data){
     GF_df = rbind(GF_df, GF_i)
     parameters_df = rbind(parameters_df, parameters_i)
     
-  }
-  save(GF_df, file = "./Data_processed/GF.Rda")
-  save(parameters_df, file = "./Data_processed/parameters_opti1.Rda")
-  return(list(GF_df, parameters_df))
+    
+    j = substr(Data$Study_Arm[[i]], 7, 7)
+    df = get(paste("parameters_df_", j, sep=""))
+    
+    df = rbind(df, parameters_i)
+    
+    assign(paste("parameters_df_", j, sep=""), df)
+  }  
+  
+  Fit = list("GF" = GF_df, "Para_all" = parameters_df, "Para_1" = parameters_df_1, "Para_2" = parameters_df_2, "Para_3" = parameters_df_3, "Para_4" = parameters_df_4,"Para_5" = parameters_df_5)
+  save(Fit, file = "./Data_processed/Fit.Rda")
+  return(Fit)
 }
 
 # ---- Plotting results ----
 plot_op1 = function(pat_nb, Data){
-  par(mar = c(5, 4, 4, 5.5))
+  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   
   time_pat = Data$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
@@ -209,7 +228,7 @@ plot_op1 = function(pat_nb, Data){
          col = c("black", "black"), 
          lty = c(1, NA),   # lty=NA pour les points
          pch = c(NA, 1), # pch=16 pour les points des mesures
-         cex = 0.6, 
+         cex = 0.5, 
          xpd=TRUE, 
          inset = c(-0.25, 0)) 
 }
@@ -217,14 +236,14 @@ plot_op1 = function(pat_nb, Data){
 boxplot_OP1 = function(parameters_opti1){
   par(mar = c(3, 5, 3, 6))
   boxplot(parameters_opti1$sigma, parameters_opti1$mu, parameters_opti1$delta, parameters_opti1$alpha, parameters_opti1$rho, parameters_opti1$eta, 
-          names = c("sigma", "mu", "delta", "alpha", "rho", "eta"),
+          names = c("σ","μ","δ","α","ρ","η"),
           ylim=c(10^(-2), 10^2), 
           log="y",
           col = NA, 
           ylab = "Parameters value (log scale)", 
-          border = "blue",  # Contours des boîtes en bleu
-          medcol = "red",   # Ligne de la médiane en rouge
-          whiskcol = "blue",  # Whiskers en vert
-          staplecol = "blue", 
-          main = "All studies")
+          border = "blue",  
+          medcol = "red",   
+          whiskcol = "blue",  
+          staplecol = "blue")
+  
 }

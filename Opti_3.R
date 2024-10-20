@@ -13,18 +13,19 @@ add_pred_Data = function(Data, nb_points_omitted){
   Data_qua$parameters_pred = rep(NA,nb_pat)
   Data_qua$nb_points_omitted = rep(NA,nb_pat)
   
-  for (i in 1:20){ #pat14
-    print("")
-    print(i)
-    result = opti1_pat(i, Data_qua, nb_points_omitted = nb_points_omitted)
-    parameters = result$solution
-    
-    sol = sol_opti1(i, Data_qua, parameters)
-    
-    Data_qua$y_pred[i] = I(list(sol$y))
-    Data_qua$parameters_pred[i] = I(list(parameters))
-    Data_qua$nb_points_omitted[i] = nb_points_omitted
-    save(Data_qua, file="./Data_processed/Data_qua.Rda")
+  for (i in 15:nb_pat){
+    print(paste("Patient", i))
+    if (i!=14){
+      result = opti1_pat(i, Data_qua, nb_points_omitted = nb_points_omitted)
+      parameters = result$solution
+      
+      sol = sol_opti1(i, Data_qua, parameters)
+      
+      Data_qua$y_pred[i] = I(list(sol$y))
+      Data_qua$parameters_pred[i] = I(list(parameters))
+      Data_qua$nb_points_omitted[i] = nb_points_omitted
+      save(Data_qua, file="./Data_processed/Data_qua.Rda")
+    }
   }
   save(Data_qua, file="./Data_processed/Data_qua.Rda")
   return(Data_qua)
@@ -169,7 +170,7 @@ opti3_pat = function(pat_nb, Data){
   # Computing of gradient
   gradient_OP3 <- function(bounds) {
     grad <- grad(func = f_minimize_OP3, x = bounds)
-    print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
+    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
     return(grad)
   }
   
@@ -178,10 +179,9 @@ opti3_pat = function(pat_nb, Data){
   upper_bounds <- rep(c(10^2), 14) 
   
   #Starting values for the parameter optimization
-  start_para = c("x1_low" = 1, "p_low" = c("sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1), "x1_upp" = 1, "p_upp" = c("sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1))
-  # start_para = c("x1_low" = parameters_pred[1], "p_min" = parameters_pred[2:7], "x1_upp" = parameters_pred[8], "p_max" = parameters_pred[9:14])
-  # start_para = c("x1_low" = parameters_opt[1], "p_min" = parameters_opt[2:7], "x1_upp" = parameters_opt[8], "p_max" = parameters_opt[9:14])
-  
+  # start_para = c("x1_low" = 1, "p_low" = c("sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1), "x1_upp" = 1, "p_upp" = c("sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1))
+  start_para = c("x1_low" = parameters_pred[1], "p_min" = parameters_pred[2:7], "x1_upp" = parameters_pred[1], "p_max" = parameters_pred[2:7])
+
   # Optimization
   result <- nloptr(
     x0 = start_para,
@@ -203,23 +203,20 @@ add_op3_Data = function(Data){
   Data_5 = Data
   
   nb_pat = length(Data_5$Patient_Anonmyized)
-  
+
   Data_5$y_low = rep(NA,nb_pat)
   Data_5$y_upp = rep(NA,nb_pat)
   Data_5$parameters_low = rep(NA,nb_pat)
   Data_5$parameters_upp = rep(NA,nb_pat)
   
-  for (i in 1:13){
-    print("")
-    print(i)
-    # if (i!= 4 & i!=11 & i!=14 & i!=25){
+  for (i in 1:nb_pat){
+    print(paste("Patient",i))
+    if (i!= 14 & i!= 60 & i!= 104 & i!= 168 & i!=189){
       result = opti3_pat(i, Data_5)
 
       bounds = result$solution
       parameters_low = bounds[1:7]
       parameters_upp = bounds[8:14]
-      # parameters_low = Data_5$parameters_low[[i]]
-      # parameters_upp = Data_5$parameters_low[[i]]
       
       odes = compute_odes_op3(i, Data, bounds, plot=FALSE)
       
@@ -228,7 +225,7 @@ add_op3_Data = function(Data){
       Data_5$parameters_low[i] = I(list(parameters_low))
       Data_5$parameters_upp[i] = I(list(parameters_upp))
       save(Data_5, file="./Data_processed/Data_5.Rda")
-    # }
+    }
   }
   save(Data_5, file="./Data_processed/Data_5.Rda")
   return(Data_5)
@@ -248,7 +245,7 @@ plot_pred = function(pat_nb, Data){
   ymin = min(min(Data$y_opt[[pat_nb]]), min(Data$y_pred[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   
   # plot environment
-  par(mar = c(5, 5, 3, 6))
+  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb), ylim=c(ymin, ymax))
   
@@ -267,7 +264,7 @@ plot_pred = function(pat_nb, Data){
          col = c("black", "red", "black"), 
          lty = c(1, 1, NA),   # lty=NA pour les points
          pch = c(NA, NA, 1), # pch=16 pour les points des mesures
-         cex = 0.6, 
+         cex = 0.5, 
          xpd=TRUE, 
          inset = c(-0.25, 0))
 }
@@ -281,12 +278,12 @@ plot_pred_op3 = function(pat_nb, Data){
   sorted_time_pat = sorted_time_pat/(max(sorted_time_pat) - min(sorted_time_pat))
   x_col = sorted_time_pat[length(sorted_time_pat)-Data$nb_points_omitted[pat_nb]+1]-0.01
   
-  ymax = max(max(Data$y_low[[pat_nb]]), max(Data$y_upp[[pat_nb]]), max(Data$y_pred[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9), max(Data$y_opt[[pat_nb]]))
+  ymax = max(max(Data$y_low[[pat_nb]]), max(Data$y_pred[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9), max(Data$y_opt[[pat_nb]]), max(Data$y_upp[[pat_nb]]))
   ymin = min(min(Data$y_low[[pat_nb]]), min(Data$y_upp[[pat_nb]]), min(Data$y_pred[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9), min(Data$y_opt[[pat_nb]]))
   
   
   # plot environment
-  par(mar = c(5, 5, 3, 6))
+  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb), ylim=c(ymin, ymax))
   
@@ -310,7 +307,7 @@ plot_pred_op3 = function(pat_nb, Data){
          col = c("black","black", "red", "blue", "black"), 
          lty = c(1, 4, 1, 1, NA),   # lty=NA for observations
          pch = c(NA, NA, NA, NA, 1), # pch=1 for observations
-         cex = 0.6, 
+         cex = 0.5, 
          xpd=TRUE, 
          inset = c(-0.25, 0))
 }
@@ -333,7 +330,7 @@ plot_pred_test = function(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500, pr
   ymin = min(min(Data_ter$y_opt[[pat_nb]]), min(sol$y), min(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   
   #plot environment
-  par(mar = c(5, 5, 3, 6))
+  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   plot(sol$time, Data_ter$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb), ylim=c(ymin,ymax))
   

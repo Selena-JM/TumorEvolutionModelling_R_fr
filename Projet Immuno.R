@@ -15,6 +15,8 @@ library("numDeriv")
 library("ggplot2")
 library("plotly")
 library("stats")
+library("scales")
+library("RColorBrewer")
 
 # ---- Importing Data ----
 # Data imported from https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009822#pcbi.1009822.s006
@@ -23,8 +25,9 @@ Study1 = read_excel("Data.xlsx", col_types = c("guess", "guess", "guess", "guess
 Study2 = read_excel("Data.xlsx", col_types = c("guess", "guess", "guess", "guess"), sheet="Study2")
 Study3 = read_excel("Data.xlsx", col_types = c("guess", "guess", "guess", "guess"), sheet="Study3")
 Study4 = read_excel("Data.xlsx", col_types = c("guess", "guess", "guess", "guess"), sheet="Study4")
+Study5 = read_excel("Data.xlsx", col_types = c("guess", "guess", "guess", "guess"), sheet="Study5")
 
-Data_studies = rbind(Study1, Study2, Study3, Study4)
+Data_studies = rbind(Study1, Study2, Study3, Study4, Study5)
 
 
 # ---- Data pre-processing ----
@@ -109,6 +112,16 @@ for (i in 1:length(Data$Patient_Anonmyized)){
 
 save(Data, file="./Data_processed/Data.Rda")
 
+# To know the number of patients in each study arm
+nb_pat_study=rep(NA,14)
+names = c("Study_1_Arm_1", "Study_1_Arm_2", "Study_1_Arm_3", 
+          "Study_2_Arm_1", "Study_2_Arm_2", 
+          "Study_3_Arm_1", "Study_3_Arm_2", "Study_3_Arm_3", "Study_3_Arm_4", "Study_3_Arm_5", "Study_3_Arm_6", 
+          "Study_4_Arm_1", "Study_4_Arm_2", 
+          "Study_5_Arm_1")
+for (i in 1:length(nb_pat_study)){
+  nb_pat_study[i] = length(Data$Study_Arm[Data$Study_Arm == names[i]])
+}
 
 # ---- Data processing : building data bases ----
 #### Optimization problem 1 : finding optimal parameters for each patient ####
@@ -116,16 +129,10 @@ source("Opti_1.R")
 Data_bis = add_op1_Data(Data)
 Fit = goodness_fit_analysis(Data_bis)
 
-#### Goodness of fit analysis ####
-GF = Fit[[1]]
-print(summary(GF$MAE, rm.na=True))
-print(summary(sqrt(GF$MSE), rm.na=True))
-print(summary(GF$R2, rm.na=True))
-
 #### Optimization problem 2 : Parameter identifiability ####
 source("Opti_2.R")
 Data_ter = add_op2_Data(Data_bis)
-Data_ter_bis = add_op2_bis_Data(Data_ter_bis)
+Data_ter_bis = add_op2_bis_Data(Data_bis)
 
 #### Predictions ####
 source("Opti_3.R")
@@ -138,59 +145,113 @@ Data_5 = add_op3_Data(Data_qua)
 
 # ---- Tests ----
 #### DB OP1 : Data_bis ####
-pat_nb = 3
+pat_nb = 92
 plot_op1(pat_nb, Data_bis)
-boxplot_OP1(parameters_df)
+
+# visualize parameters over all patients
+parameters = Fit$Para_5
+boxplot_OP1(parameters)
+
+# Goodness of fit analysis 
+GF = Fit$GF
+print(summary(GF$MAE, rm.na=True))
+print(summary(sqrt(GF$MSE), rm.na=True))
+print(summary(GF$R2, rm.na=True))
 
 #### DB OP2 : Data_ter ####
-pat_nb = 2
+pat_nb = 252
+plot_range_para(pat_nb, Data_ter_bis)
 
-# Plot curves 
+# Plot curves
 plot_op1_op2(pat_nb, Data_ter)
 plot_op1_op2_bis(pat_nb, Data_ter_bis, para=1)
 
-#plot parameter ranges for a patient
-plot_range_para(pat_nb, Data_ter_bis)
-
 #plot paramters histogram
-plot_histo(Data_ter_bis)
+parameters = Fit$Para_all
+plot_histo(Data_ter_bis, parameters)
 
 #### Predictions : Data_qua ####
-pat_nb = 9
+pat_nb = 2
 plot_pred(pat_nb, Data_qua)
 # plot_pred_test(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500)
 
 
 #### DB OP3 : Data_5 ####
-pat_nb = 13
+pat_nb = 252
 # plot_pred_op3_test(pat_nb, Data_qua)
 plot_pred_op3(pat_nb, Data_5)
 
 
 # ---- Global optimization ----
 source("Global_opti.R")
-bornes = global_opti(Data_ter)
+database = Data_ter
+
+#visualizing the max of the min and the min of the max parameters
+bornes = global_opti(database)
 print(bornes)
 
-#creating data for clustering
-Data_clustering = clustering(Data_ter)
-row.names(Data_clustering) = 1:nrow(Data_clustering)
-
-set.seed(123)
-
-#### clustering kmeans ####
-kmeans_result = kmeans(Data_clustering[1:50,], centers = 10, nstart = 25)
-print(kmeans_result)
-
-plot_global(1, kmeans_result, Data_ter)
-
-plot_clusters(10, kmeans_result, Data_ter)
+#creating data for clustering -> takes the optimal parameters as factors in the
+# clustering because best way to take into  consideration the form of the curves
+# for each patient
+Data_clustering = clustering_extremums(database)
 
 #### hierarchical clustering ####
-distance_matrix = dist(Data_clustering[1:50,], method = "euclidean")
+Data_clustering = clustering_para(database)
+
+distance_matrix = dist(Data_clustering[,-1], method = "euclidean")
 
 hc_result = hclust(distance_matrix, method = "ward.D2")
 plot(hc_result, main="Patient Dendrogramme")
 
-cluster_hierarchical = cutree(hc_result, k = 5)
+nb_clusters = 10
+cluster_hierarchical = cutree(hc_result, k = nb_clusters)
+
+#finding the centers of each cluster
+analysis = cluster_analysis(cluster_hierarchical, nb_clusters, Data_clustering, database)
+cluster_means = analysis$cluster_means
+cluster_std = analysis$cluster_std
+cluster_median = analysis$cluster_median
+cluster_Y0 = analysis$cluster_Y0
+
+
+pat_nb_clustering = 1
+cluster = cluster_hierarchical[[pat_nb_clustering]]
+pat_nb = Data_clustering[pat_nb_clustering,1]
+
+indices = Data_clustering[unique(which(cluster_hierarchical==cluster)),1]
+print(indices)
+
+plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
+
+result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
+
+parameters = result_global_opti$solution
+plot_cluster_curve(pat_nb, parameters[1:7], parameters[8], database)
+
+
+#### clustering kmeans ####
+Data_clustering = clustering_extremums(database)
+
+nb_clusters=20
+
+kmeans_result = kmeans(Data_clustering[,-1], centers = nb_clusters, nstart = 25)
+print(kmeans_result)
+
+analysis = cluster_analysis(kmeans_result$cluster, nb_clusters, Data_clustering, database)
+cluster_means = analysis$cluster_means
+cluster_std = analysis$cluster_std
+cluster_median = analysis$cluster_median
+cluster_Y0 = analysis$cluster_Y0
+
+pat_nb_clustering = 45
+cluster = kmeans_result$cluster[[pat_nb_clustering]]
+pat_nb = Data_clustering[pat_nb_clustering,1]
+
+indices = Data_clustering[unique(which(kmeans_result$cluster==cluster)),1]
+print(indices)
+
+plot_cluster_curve(pat_nb, cluster_means[cluster,], database)
+# plot_cluster_curve(pat_nb, kmeans_result$centers[1:7], database)
+
+# plot_clusters(5, kmeans_result, database)
 

@@ -115,7 +115,7 @@ opti2_pat = function(pat_nb, Data){
   # Computing of gradient
   gradient_OP2 <- function(bounds) {
     grad <- grad(func = f_minimize_OP2, x = bounds)
-    print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
+    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
     return(grad)
   }
   
@@ -160,9 +160,10 @@ add_op2_Data = function(Data_post_op1){
   Data_ter$parameters_min = rep(NA,nb_pat)
   Data_ter$parameters_max = rep(NA,nb_pat)
   
-  for (i in 1:50){
+  for (i in 1:nb_pat){
     print(paste("Patient", i))
-    # if (i!= 4 & i!=11 & i!=14 & i!=25){
+    
+    if (i!=124){
       result = opti2_pat(i, Data_ter)
       
       bounds = result$solution
@@ -176,7 +177,7 @@ add_op2_Data = function(Data_post_op1){
       Data_ter$parameters_min[i] = I(list(parameters_min))
       Data_ter$parameters_max[i] = I(list(parameters_max))
       save(Data_ter, file="./Data_processed/Data_ter.Rda")
-    # }
+    }
   }
   save(Data_ter, file="./Data_processed/Data_ter.Rda")
   return(Data_ter)
@@ -264,26 +265,25 @@ add_op2_bis_Data = function(Data_post_op1){
   
   nb_pat = length(Data_ter_bis$Patient_Anonmyized)
   
-  # Data_ter_bis$y_min = rep(NA,nb_pat)
-  # Data_ter_bis$y_max = rep(NA,nb_pat)
-  # Data_ter_bis$parameters_min = rep(NA,nb_pat)
-  # Data_ter_bis$parameters_max = rep(NA,nb_pat)
+  Data_ter_bis$y_min = rep(NA,nb_pat)
+  Data_ter_bis$y_max = rep(NA,nb_pat)
+  Data_ter_bis$parameters_min = rep(NA,nb_pat)
+  Data_ter_bis$parameters_max = rep(NA,nb_pat)
   
-  parameters_min = rep(NA, 6)
-  parameters_max = rep(NA, 6)
-  for (i in 29:50){
+  for (i in 1:nb_pat){
     print(paste("Patient", i))
-    # if (i!= 4 & i!=11 & i!=14 & i!=25){
-    for (k in 1:6){
-      print(paste("Patient", i, ", parameter", k))
-      result = opti2_bis_pat(i, Data_ter_bis, k)
+    parameters_min = rep(NA, 6)
+    parameters_max = rep(NA, 6)
+    if (i!= 28 & i!= 79 & i!= 99 & i!= 124){
+      for (k in 1:6){
+        print(paste("Patient", i, ", parameter", k))
+        result = opti2_bis_pat(i, Data_ter_bis, k)
+        
+        p_k = result$solution
+        parameters_min[k] = p_k[1]
+        parameters_max[k] = p_k[2]
       
-      p_k = result$solution
-      parameters_min[k] = p_k[1]
-      parameters_max[k] = p_k[2]
-    
-      # }
-    }
+      }
     bounds = c(parameters_min, parameters_max)
     odes = compute_odes(i, Data_ter_bis, bounds)
     
@@ -291,6 +291,7 @@ add_op2_bis_Data = function(Data_post_op1){
     Data_ter_bis$y_max[i] = I(list(odes$y_max))
     Data_ter_bis$parameters_min[i] = I(list(parameters_min))
     Data_ter_bis$parameters_max[i] = I(list(parameters_max))
+    }
     save(Data_ter_bis, file="./Data_processed/Data_ter_bis.Rda")
   }
   save(Data_ter_bis, file="./Data_processed/Data_ter_bis.Rda")
@@ -299,7 +300,7 @@ add_op2_bis_Data = function(Data_post_op1){
 
 # ---- Plotting results ----
 plot_op1_op2 = function(pat_nb, Data_ter){
-  par(mar = c(5, 4, 4, 5.5))
+  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   
   ymax = max(max(Data_ter$y_min[[pat_nb]]), max(Data_ter$y_max[[pat_nb]]), max(Data_ter$y_opt[[pat_nb]]),max(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   ymin = min(min(Data_ter$y_min[[pat_nb]]), min(Data_ter$y_max[[pat_nb]]), min(Data_ter$y_opt[[pat_nb]]),min(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
@@ -318,7 +319,7 @@ plot_op1_op2 = function(pat_nb, Data_ter){
          col = c("black", "red", "blue", "black"), 
          lty = c(1, 1, 1, NA),   # lty=NA pour les points
          pch = c(NA, NA, NA, 1), # pch=16 pour les points des mesures
-         cex = 0.6, 
+         cex = 0.5, 
          xpd=TRUE, 
          inset = c(-0.25, 0)) 
 }
@@ -360,22 +361,18 @@ plot_op1_op2_bis = function(pat_nb, Data_ter, para){
 
 plot_range_para = function(pat_nb, Data){
   p_opt = Data$parameters_opt[[pat_nb]]
-  sigma = p_opt[1]
-  rho = p_opt[2]
-  eta = p_opt[3]
-  mu = p_opt[4]
-  delta = p_opt[5]
-  alpha = p_opt[6]
+  sigma = p_opt[2]
+  rho = p_opt[3]
+  eta = p_opt[4]
+  mu = p_opt[5]
+  delta = p_opt[6]
+  alpha = p_opt[7]
   
   p_min = Data$parameters_min[[pat_nb]]
   low_value=c(p_min[1], p_min[4], p_min[5], p_min[6], p_min[2], p_min[3])
   
   p_max = Data$parameters_max[[pat_nb]]
   high_value=c(p_max[1], p_max[4], p_max[5], p_max[6], p_max[2], p_max[3])
-  
-  print(Data$parameters_opt[[pat_nb]])
-  print(Data$parameters_min[[pat_nb]])
-  print(Data$parameters_max[[pat_nb]])
   
   data = data.frame(
     Parameter = factor(c("σ", "μ", "δ", "α", "ρ", "η"), 
@@ -400,9 +397,9 @@ plot_range_para = function(pat_nb, Data){
                  arrow = arrow(length = unit(0.2, "cm"), ends = "last", type="open"),
                  size = 0.8,
                  show.legend = FALSE) + 
-      
+    
     scale_color_manual(values = data$Color) +  
-    scale_y_log10(limits = c(0.01, 100)) +  
+    scale_y_log10(limits = c(0.01, 100), labels = trans_format("log10", label_number(accuracy = 0.01))) +  
     labs(title = paste("Patient ", pat_nb), x = "", y = "") +  
     theme_minimal() +
     theme(panel.grid.minor = element_blank(), 
@@ -411,12 +408,10 @@ plot_range_para = function(pat_nb, Data){
 }
 
 
-plot_histo = function(Data){
-  # nb_pat = length(Data$Patient_Anonmyized)
+plot_histo = function(Data, parameters){
+  nb_pat = length(Data$Patient_Anonmyized)
   
-  nb_pat = 50
-  
-  range = 10^seq(from=-2, to=2, by=0.1)
+  range = 10^seq(from=-2, to=2, length.out=200)
   L = length(range)
   D_histo = matrix(0, nrow = 6, ncol = L)
   
@@ -443,8 +438,11 @@ plot_histo = function(Data){
 
   par(mfrow=c(3,2), mar=c(2,2,2,2))
   title = c("σ", "ρ", "η", "μ", "δ", "α")
+  # names = c("sigma", "rho", "eta", "mu", "delta", "alpha")
   Color = brewer.pal(6, "Set2")
   for (k in 1:6){
-    plot(range, D_histo[k,]/nb_pat, log='x', type='l', main=title[k], col=Color[k])
+    med = median(parameters[[k+1]], na.rm=TRUE)
+    plot(range, D_histo[k,]/nb_pat, log='x', type='l', main=title[k], col=Color[k], lwd=1.5)
+    lines(x = c(med, med), y = par("usr")[3:4], col='grey', lwd=2) #y axis limits of the plot
   }
 }
