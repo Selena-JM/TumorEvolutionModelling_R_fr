@@ -17,6 +17,17 @@ library("plotly")
 library("stats")
 library("scales")
 library("RColorBrewer")
+library("sensitivity")
+library("randtoolbox")
+
+# ---- Dependencies ---- 
+source("Opti_1.R")
+source("Opti_2.R")
+source("Opti_3.R")
+source("Predictions.R")
+source("derive.R")
+source("Global_opti.R")
+source("Sensitivity_analysis.R")
 
 # ---- Importing Data ----
 # Data imported from https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009822#pcbi.1009822.s006
@@ -125,23 +136,27 @@ for (i in 1:length(nb_pat_study)){
 
 # ---- Data processing : building data bases ----
 #### Optimization problem 1 : finding optimal parameters for each patient ####
-source("Opti_1.R")
 Data_bis = add_op1_Data(Data)
+
+#goodness of fit analysis for optimal curves (results of OP1)
 Fit = goodness_fit_analysis(Data_bis)
 
 #### Optimization problem 2 : Parameter identifiability ####
-source("Opti_2.R")
 Data_ter = add_op2_Data(Data_bis)
-Data_ter_bis = add_op2_bis_Data(Data_bis)
+# Data_ter_ter = add_op2_ter_Data(Data_bis)
+Data_ter_ter = add_op2_ter_Data(Data_ter_ter)
 
 #### Predictions ####
-source("Opti_3.R")
 Data_qua = add_pred_Data(Data_ter, 2)
 
 #### Optimization problem 3 : Parameter identifiability ####
 Data_5 = add_op3_Data(Data_qua)
-# Data_5 = add_op3_Data(Data_5)
 
+#Evaluation of predictions and uncertainty intervals
+Fit_OP3 = goodness_prediction_intervals_analysis(Data_5)
+
+#### Local unidimensional sensitivity analysis ####
+Data_ter_bis = add_op2_bis_Data(Data_bis)
 
 # ---- Tests ----
 #### DB OP1 : Data_bis ####
@@ -160,30 +175,33 @@ print(summary(GF$R2, rm.na=True))
 
 #### DB OP2 : Data_ter ####
 pat_nb = 252
-plot_range_para(pat_nb, Data_ter_bis)
+plot_range_para(pat_nb, Data_ter, type="bis")
+plot_range_para(pat_nb, Data_ter_ter, type="ter")
 
 # Plot curves
 plot_op1_op2(pat_nb, Data_ter)
-plot_op1_op2_bis(pat_nb, Data_ter_bis, para=1)
+plot_op1_op2_ter(pat_nb, Data_ter_ter)
 
 #plot paramters histogram
 parameters = Fit$Para_all
-plot_histo(Data_ter_bis, parameters)
+plot_histo(Data_ter_ter, parameters, type="ter")
 
 #### Predictions : Data_qua ####
-pat_nb = 2
+pat_nb = 1
 plot_pred(pat_nb, Data_qua)
-# plot_pred_test(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500)
-
 
 #### DB OP3 : Data_5 ####
-pat_nb = 252
-# plot_pred_op3_test(pat_nb, Data_qua)
+pat_nb = 1
 plot_pred_op3(pat_nb, Data_5)
+
+# Analysis
+print(summary(Fit_OP3$MAE, rm.na=True))
+print(summary(sqrt(Fit_OP3$MSE), rm.na=True))
+print(summary(Fit_OP3$R2, rm.na=True))
+print(summary(Fit_OP3$nb_points_in_interval, rm.na=True))
 
 
 # ---- Global optimization ----
-source("Global_opti.R")
 database = Data_ter
 
 #visualizing the max of the min and the min of the max parameters
@@ -193,15 +211,14 @@ print(bornes)
 #creating data for clustering -> takes the optimal parameters as factors in the
 # clustering because best way to take into  consideration the form of the curves
 # for each patient
-Data_clustering = clustering_extremums(database)
 
 #### hierarchical clustering ####
-Data_clustering = clustering_para(database)
-
+Data_clustering = clustering_extremums(database)
 distance_matrix = dist(Data_clustering[,-1], method = "euclidean")
 
 hc_result = hclust(distance_matrix, method = "ward.D2")
-plot(hc_result, main="Patient Dendrogramme")
+par(mfrow=c(1,1))
+plot(hc_result, main="Patient Dendrogramme", cex = 0.5, xlab="")
 
 nb_clusters = 10
 cluster_hierarchical = cutree(hc_result, k = nb_clusters)
@@ -214,7 +231,7 @@ cluster_median = analysis$cluster_median
 cluster_Y0 = analysis$cluster_Y0
 
 
-pat_nb_clustering = 1
+pat_nb_clustering = 15
 cluster = cluster_hierarchical[[pat_nb_clustering]]
 pat_nb = Data_clustering[pat_nb_clustering,1]
 
@@ -223,10 +240,10 @@ print(indices)
 
 plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
 
-result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
-
-parameters = result_global_opti$solution
-plot_cluster_curve(pat_nb, parameters[1:7], parameters[8], database)
+# result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
+# 
+# parameters = result_global_opti$solution
+# plot_cluster_curve(pat_nb, parameters[1:7], database)
 
 
 #### clustering kmeans ####
@@ -255,3 +272,53 @@ plot_cluster_curve(pat_nb, cluster_means[cluster,], database)
 
 # plot_clusters(5, kmeans_result, database)
 
+# ---- Sensitivity analysis ----
+#### Multidimensional ####
+pat_nb=11
+N = 100
+
+sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_ter_bis,N=N, bounds="OP2")
+print(sobol_design_multi)
+
+
+#### Unidimensional ####
+pat_nb=1
+N = 100
+sensitivity_plot_unidimensional(pat_nb, Data_ter_ter, N=N, bounds="OP2")
+
+sobol_design_uni = sensitivity_analysis_unidimensional(pat_nb, Data_ter_bis,N=N, bounds="OP2")
+print(sobol_design_uni)
+
+
+#### tests ####
+param_bounds = data.frame(
+  p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
+  p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
+  p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3], Data_ter_bis$parameters_max[[pat_nb]][3]),
+  p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4], Data_ter_bis$parameters_max[[pat_nb]][4]),
+  p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5], Data_ter_bis$parameters_max[[pat_nb]][5]),
+  p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
+)
+param_bounds = t(param_bounds)
+
+parameters = randtoolbox::sobol(n = 1000, dim = 6)
+scaled_params = t(apply(parameters, 1, function(x) {
+  x * (param_bounds[, 2] - param_bounds[, 1]) + param_bounds[, 1]
+}))
+
+summary(scaled_params)  # Résumé des échantillons transformés
+hist(scaled_params[, 2], breaks=30, xlim = c(10^(-2), 10^2))
+
+scaled_params = t(apply(parameters, 1, function(x) {
+  10^(x * (log10(param_bounds[, 2]) - log10(param_bounds[, 1])) + log10(param_bounds[, 1]))
+}))
+df <- data.frame(param = scaled_params[, 2])
+
+# Histogramme avec échelle logarithmique sur l'axe x
+ggplot(df, aes(x = param)) +
+  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  scale_x_log10() +  # Echelle logarithmique pour l'axe x
+  labs(title = "Histogramme avec Axe X en Logarithmique", 
+       x = "Valeurs du paramètre (log)", 
+       y = "Fréquence") +
+  theme_minimal()

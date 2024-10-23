@@ -1,93 +1,7 @@
 #date:03/10/2024, author : Séléna Jean-Mactoux
-#Predictions & OP3: removing some points at the end and running OP1, then finding worst case scenarios for predictions
+#OP3: finding worst case scenarios for predictions
 
 source("derive.R")
-
-# ---- Building data base for predictions ----
-add_pred_Data = function(Data, nb_points_omitted){
-  Data_qua = Data
-  
-  nb_pat = length(Data_qua$Patient_Anonmyized)
-  
-  Data_qua$y_pred = rep(NA,nb_pat)
-  Data_qua$parameters_pred = rep(NA,nb_pat)
-  Data_qua$nb_points_omitted = rep(NA,nb_pat)
-  
-  for (i in 15:nb_pat){
-    print(paste("Patient", i))
-    if (i!=14){
-      result = opti1_pat(i, Data_qua, nb_points_omitted = nb_points_omitted)
-      parameters = result$solution
-      
-      sol = sol_opti1(i, Data_qua, parameters)
-      
-      Data_qua$y_pred[i] = I(list(sol$y))
-      Data_qua$parameters_pred[i] = I(list(parameters))
-      Data_qua$nb_points_omitted[i] = nb_points_omitted
-      save(Data_qua, file="./Data_processed/Data_qua.Rda")
-    }
-  }
-  save(Data_qua, file="./Data_processed/Data_qua.Rda")
-  return(Data_qua)
-}
-
-# ---- Computing resulting functions : solve ode with the estimated parameters ----
-compute_odes_op3 = function(pat_nb, Data, bounds, plot=FALSE){
-  x1_low = bounds[1]
-  p_min = bounds[2:7]
-  x1_upp = bounds[8]
-  p_max = bounds[9:14]
-  
-  # Parameters
-  p_low = list(
-    sigma = p_min[1],
-    rho = p_min[2],
-    eta = p_min[3],
-    mu = p_min[4],
-    delta = p_min[5],
-    alpha = p_min[6])
-  
-  p_upp = list(
-    sigma = p_max[1],
-    rho = p_max[2],
-    eta = p_max[3],
-    mu = p_max[4],
-    delta = p_max[5],
-    alpha = p_max[6])
-  
-  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
-  time_pat = Data$Treatment_Day[[pat_nb]]
-  T0 = 10^9
-  
-  #Initial conditions
-  init_low = c("X"=x1_low, "Y"=TC_pat[1]/T0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
-  init_upp = c("X"=x1_upp, "Y"=TC_pat[1]/T0) 
-  
-  # Normalised time
-  time_pat = time_pat/(max(time_pat) - min(time_pat))
-  time = seq(from=min(time_pat), to=max(time_pat), by=0.01) #*(max(time_pat)-min(time_pat))
-  
-  #Solve differential equations
-  ODE_sol_low = ode(y=init_low, times = time, func = derive, parms = p_low, method="bdf")
-  y_low = ODE_sol_low[,3]
-  
-  ODE_sol_upp = ode(y=init_upp, times = time, func = derive, parms = p_upp, method="bdf")
-  y_upp = ODE_sol_upp[,3]
-  
-  ## Find the right value for the comparison in cost function
-  # Interpolation
-  y_est_low = spline(time, y_low, xout = time_pat)$y
-  y_est_upp = spline(time, y_upp, xout = time_pat)$y
-  
-  if (plot == TRUE){
-    plot(time, Data$y_pred[[pat_nb]], type = 'l', col = 'black')
-    lines(time, y_upp, type = "l", col='blue')
-    lines(time, y_low, type = "l", col='red')
-    point(time_pat, TC_pat/T0)
-  }
-  
-  return(list(y_low = y_low, y_upp = y_upp, y_est_low=y_est_low, y_est_upp = y_est_upp))
-}
 
 # ---- Optimization pb 3 ----
 opti3_pat = function(pat_nb, Data){
@@ -231,43 +145,86 @@ add_op3_Data = function(Data){
   return(Data_5)
 }
 
-# ---- Plotting results ----
-# Plot predictions
-plot_pred = function(pat_nb, Data){
-  time_pat = Data$Treatment_Day[[pat_nb]]
-  time_pat = time_pat/(max(time_pat) - min(time_pat))
-  
-  sorted_time_pat = sort(Data$Treatment_Day[[pat_nb]])
-  sorted_time_pat = sorted_time_pat/(max(sorted_time_pat) - min(sorted_time_pat))
-  x_col = sorted_time_pat[length(sorted_time_pat)-Data$nb_points_omitted[pat_nb]+1]-0.01
-  
-  ymax = max(max(Data$y_opt[[pat_nb]]), max(Data$y_pred[[pat_nb]]), max(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymin = min(min(Data$y_opt[[pat_nb]]), min(Data$y_pred[[pat_nb]]), min(Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  
-  # plot environment
-  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
-  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb), ylim=c(ymin, ymax))
-  
-  # Rectangle
-  rect(xleft = x_col, ybottom = par("usr")[3], xright = par("usr")[2], 
-       ytop = par("usr")[4], col = rgb(0.9, 0.8, 0.8, 0.5), border = NA) 
-  
-  
-  lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'l', col = 'black')
-  lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], type = 'l', col = 'red')
-  
-  points(time_pat, Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
-  
-  legend("topright", 
-         legend = c("y_opt", "y_pred", "observations"), 
-         col = c("black", "red", "black"), 
-         lty = c(1, 1, NA),   # lty=NA pour les points
-         pch = c(NA, NA, 1), # pch=16 pour les points des mesures
-         cex = 0.5, 
-         xpd=TRUE, 
-         inset = c(-0.25, 0))
+# ---- Analysis ----
+goodness_prediction_intervals = function(pat_nb, Data){
+  if (length(which(is.na(Data$y_pred[[pat_nb]])))==0 &length(which(is.na(Data$y_low[[pat_nb]])))==0){
+    T0 = 10^9
+    TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+    
+    y_obs = TC_pat/T0
+    
+    time_pat = Data$Treatment_Day[[pat_nb]]
+    time_pat = time_pat/(max(time_pat) - min(time_pat)) 
+    
+    time = Data$time[[pat_nb]]
+    
+    y_low = Data$y_low[[pat_nb]]
+    y_upp = Data$y_upp[[pat_nb]]
+    y_pred = Data$pred[[pat_nb]]
+    
+    y_low_est = spline(time, y_low, xout = time_pat)$y
+    y_upp_est = spline(time, y_upp, xout = time_pat)$y
+    y_pred_est = spline(time, y_pred, xout = time_pat)$y
+    
+    # Only compare the results for the predicted points
+    nb_points_omitted = Data$nb_points_omitted[pat_nb]
+
+    y_obs = y_obs[(length(y_obs)-nb_points_omitted +1):length(y_obs)]
+    y_low_est = y_low_est[(length(y_low_est)-nb_points_omitted +1):length(y_low_est)]
+    y_upp_est = y_upp_est[(length(y_upp_est)-nb_points_omitted +1):length(y_upp_est)]
+    y_pred_est = y_pred_est[(length(y_pred_est)-nb_points_omitted +1):length(y_pred_est)]
+    
+    nb_points_in_interval = length(which(y_obs<=y_upp_est & y_obs>=y_low_est))
+
+    # Find the closest to the data points between y_low, y_pred and y_upp and compute the normal analysis, 
+    diff_low = abs(y_low_est - y_obs)
+    diff_upp = abs(y_upp_est - y_obs)
+    diff_pred = abs(y_pred_est - y_obs)
+
+    y_est = rep(NA, nb_points_omitted)
+    for (k in 1:nb_points_omitted){
+      y_est[k] = min(diff_low[k], diff_upp[k], diff_pred[k])
+    }
+    
+    
+    # Metrics
+    # R²
+    ss_total = sum((y_obs - mean(y_est))^2)
+    ss_residual = sum((y_obs - y_est)^2)
+    r_squared = 1 - (ss_residual / ss_total)
+    
+    # MAE
+    mae = mean(abs(y_obs - y_est))
+    
+    # MSE
+    mse = mean((y_obs - y_est)^2)
+  }
+  else {
+    r_squared = NA
+    mae = NA
+    mse = NA
+    nb_points_in_interval = NA
+  }
+  return(list(MAE = mae,MSE = mse, R2 = r_squared, nb_points_in_interval=nb_points_in_interval))
 }
+
+
+goodness_prediction_intervals_analysis = function(Data){
+  
+  Fit_OP3 = data.frame(MAE = numeric(), MSE = numeric(), R2 = numeric(), l_nb_in_intervals=numeric())
+  
+  for (i in 1:length(Data$Patient_Anonmyized)){
+    Fit_OP3_i = goodness_prediction_intervals(i, Data)
+    
+    Fit_OP3 = rbind(Fit_OP3, Fit_OP3_i)
+  }  
+  
+  save(Fit_OP3, file = "./Data_processed/Fit_OP3.Rda")
+  return(Fit_OP3)
+}
+
+
+# ---- Plotting results ----
 
 # plot predictions and op3
 plot_pred_op3 = function(pat_nb, Data){
@@ -312,49 +269,6 @@ plot_pred_op3 = function(pat_nb, Data){
          inset = c(-0.25, 0))
 }
 
-# plot predictions without data base, for testing
-plot_pred_test = function(pat_nb, Data_ter, nb_points_omitted=2, maxeval=500, precision=10^(-8)){
-  result = opti1_pat(pat_nb, Data_ter, nb_points_omitted = nb_points_omitted, maxeval=maxeval, precision=precision)
-  parameters = result$solution
-
-  sol = sol_opti1(pat_nb, Data_ter, parameters)
-
-  time_pat = Data$Treatment_Day[[pat_nb]]
-  time_pat = time_pat/(max(time_pat) - min(time_pat))
-  
-  sorted_time_pat = sort(Data$Treatment_Day[[pat_nb]])
-  sorted_time_pat = sorted_time_pat/(max(sorted_time_pat) - min(sorted_time_pat))
-  x_col = sorted_time_pat[length(sorted_time_pat)-nb_points_omitted+1]-0.01
-  
-  ymax = max(max(Data_ter$y_opt[[pat_nb]]), max(sol$y), max(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymin = min(min(Data_ter$y_opt[[pat_nb]]), min(sol$y), min(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  
-  #plot environment
-  par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
-  plot(sol$time, Data_ter$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
-       ylab="Nb of tumor cells / 10^9", main=paste("Prediction results for patient :", pat_nb), ylim=c(ymin,ymax))
-  
-  # Rectangle
-  rect(xleft = x_col, ybottom = par("usr")[3], xright = par("usr")[2], 
-       ytop = par("usr")[4], col = rgb(0.9, 0.8, 0.8, 0.5), border = NA)
-  
-  #plot results
-  lines(sol$time, Data_ter$y_opt[[pat_nb]], type = 'l', col = 'black')
-  lines(sol$time, sol$y, type = 'l', col = 'red')
-
-  #observations
-  points(time_pat, Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
-
-  legend("topright",
-         legend = c("y_opt", "y_pred", "observations"),
-         col = c("black", "red", "black"),
-         lty = c(1, 1, NA),   # lty=NA pour les points
-         pch = c(NA, NA, 1), # pch=16 pour les points des mesures
-         cex = 0.6,
-         xpd=TRUE,
-         inset = c(-0.25, 0))
-  return(sol)
-}
 
 #plot op3 without data bases, for tests
 plot_pred_op3_test = function(pat_nb, Data_qua){  

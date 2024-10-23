@@ -46,17 +46,18 @@ interval_analysis = function(Data){
 #can use the mean between the min and max for each parameter for clustering
 clustering_extremums = function(Data){
   nb_pat = length(Data$Patient_Anonmyized)
-  Data_clustering = matrix(NA, nrow = nb_pat, ncol=13)
+  Data_clustering = matrix(NA, nrow = nb_pat, ncol=20)
   for (pat in 1:nb_pat){
     Data_clustering[pat,1] = pat
     Data_clustering[pat,2:7] = Data$parameters_min[[pat]]
-    Data_clustering[pat,8:13] = Data$parameters_max[[pat]]
+    Data_clustering[pat,8:14] = Data$parameters_opt[[pat]]
+    Data_clustering[pat,15:20] = Data$parameters_max[[pat]]
   }
-  indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
-  Data_clustering = Data_clustering[-indices_na,]
+  # indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
+  # Data_clustering = Data_clustering[-indices_na,]
   
   #centrer et réduire les paramètres pour le clustering
-  Data_clustering[,2:13] = scale(Data_clustering[,2:13], center = TRUE, scale = TRUE)
+  Data_clustering[,2:20] = scale(Data_clustering[,2:20], center = TRUE, scale = TRUE)
   
   return(Data_clustering)
 }
