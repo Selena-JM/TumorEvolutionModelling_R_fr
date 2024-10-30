@@ -12,10 +12,6 @@ interval_analysis = function(Data){
     min(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
   })
   
-  # borne_max = sapply(1:nb_pat, function(i) {
-  #   min(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
-  # })
-  
   borne_low_max = sapply(1:6, function(i) {
     min(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
   })
@@ -125,7 +121,8 @@ cluster_analysis = function(cluster_hierarchical, nb_clusters, Data_clustering, 
 
 global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, maxeval=500, precision = 10^(-8)){
   T0 = 10^9
-
+  indices = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]
+  
   f_minimize_global = function(parameters) {
     # Parameters
     x1 = parameters[1]
@@ -136,31 +133,32 @@ global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, 
       mu = parameters[5],
       delta = parameters[6],
       alpha = parameters[7])
-    Y0 = parameters[8]
+    # Y0 = parameters[8]
     
-    #Initial conditions
-    init = c("X"=x1, "Y"=Y0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
+    y_err = rep(NA, length(indices))
     
-    # Normalised time
-    time_cluster = seq(from=0.05, to=0.95, by=0.01) #*(max(time_pat)-min(time_pat))
-    
-    
-    #Solve differential equations
-    ODE_sol = ode(y=init, times = time_cluster, func = derive, parms = para, method="bdf")
-    y_cluster = ODE_sol[,3]
-    
-    ## Find the right value for the comparison in cost function
-    # Interpolation
-    indices = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]
-    y_pat = matrix(NA, nrow=length(indices), ncol=length(time_cluster))
-    y_err = matrix(NA, length(indices))
     for (pat in 1:length(indices)){
-      y_pat[pat,] = spline(Data$time[[indices[pat]]], Data$y_opt[[indices[pat]]], xout = time_cluster)$y
-      y_err[pat] = sum((y_pat[pat,] - y_cluster)^2)
+      #Initial conditions
+      Y0 = Data$TargetLesionLongDiam_mm[[indices[pat]]][1]/T0
+      init = c("X"=x1, "Y"=Y0)
+      
+      time_pat = Data$Treatment_Day[[indices[pat]]]
+      time_pat = time_pat / (max(Data$Treatment_Day[[indices[pat]]]) - min(Data$Treatment_Day[[indices[pat]]]))
+      
+      time = seq(from=min(time_pat), to=max(time_pat), by=0.01) #*(max(time_pat)-min(time_pat))
+      
+      #Solve differential equations
+      ODE_sol = ode(y=init, times = time, func = derive, parms = para, method="bdf")
+      y_cluster = ODE_sol[,3]
+      
+      y_cluster_est = spline(time, y_cluster, xout = time_pat)$y
+      
+      y_pat_est = spline(Data$time[[indices[pat]]], Data$y_opt[[indices[pat]]], xout = time_pat)$y
+      y_err[pat] = sum((y_pat_est - y_cluster_est)^2)
     }
     
     #Cost function
-    Cost = sum(y_err) 
+    Cost = sum(y_err)
     return(Cost)
   }
   
@@ -173,22 +171,20 @@ global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, 
   }
   
   # Limits for x1 and parameters
-  lower_bounds <- c(10^(-2), rep(c(10^(-2)), 6), 10^(-2))
-  upper_bounds <- c(10^2, rep(c(10^2), 6), 10^2) 
+  lower_bounds <- c(10^(-2), rep(c(10^(-2)), 6))
+  upper_bounds <- c(10^2, rep(c(10^2), 6)) 
   
   #Starting values for the parameter optimization
-  start_para = c("x1" = 1, "sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1, "Y0"=1)
-  # start_para = c("x1" = 10, "sigma" = 0.1, "rho" = 1, "eta" = 0.01, "mu" = 1, "delta" = 0.1, "alpha" = 0.01)
-  # start_para = c("x1" = 100, "sigma" = 100, "rho" = 100, "eta" = 1, "mu" = 10, "delta" = 10, "alpha" = 1)
+  start_para = c("x1" = 1, "sigma" = 1, "rho" = 1, "eta" = 1, "mu" = 1, "delta" = 1, "alpha" = 1)# , "Y0"=1
   
   # Optimization
   result <- nloptr(
     x0 = start_para,
     eval_f = f_minimize_global,
-    eval_grad_f = gradient_global, # Using the defined gradient
+    eval_grad_f = gradient_global, 
     lb = lower_bounds,
     ub = upper_bounds,
-    opts = list("algorithm" = "NLOPT_LD_SLSQP", "xtol_rel" = precision, "maxeval"=maxeval, print_level = 1) #NLOPT_LD_MMA, NLOPT_LD_SLSQP
+    opts = list("algorithm" = "NLOPT_LD_SLSQP", "xtol_rel" = precision, "maxeval"=maxeval, print_level = 1) 
   )
   
   # print(result)
@@ -225,17 +221,15 @@ plot_cluster_curve = function(pat_nb, parameters, Data, Y0=NA){
          inset = c(-0.25, 0)) 
 }
 
-plot_clusters = function(cluster, kmeans_result, Data, ylim=TRUE){
-  pat_cluster = which(kmeans_result$cluster == cluster)
+plot_clusters = function(cluster_nb, cluster_hierarchical, Data_clustering, Data, parameters, ylim=TRUE){
+  pat_cluster = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]
   nb_pat_cluster = length(pat_cluster)
   
   pat_nb = pat_cluster[1]
-  x1 = Data$parameters_opt[[pat_nb]][1]
-  parameters = c(x1, kmeans_result$centers[cluster, ])
   
   sol = sol_opti1(pat_nb, Data, parameters)
   time = sol$time
-  y = sol$y
+  y = sol$y - Data$TargetLesionLongDiam_mm[[pat_nb]][1]/10^9
   
   par(mar = c(5, 4, 4, 5.5))
   
@@ -245,12 +239,12 @@ plot_clusters = function(cluster, kmeans_result, Data, ylim=TRUE){
   ymax=max(y)
   ymin=min(y)
   if(ylim==TRUE){
-    for (i in 1:length(pat_cluster)){
-      if (max(Data$y_opt[[pat_cluster[i]]]) > ymax){
-        ymax=max(Data$y_opt[[pat_cluster[i]]])
+    for (i in 1:2){
+      if (max(Data$y_opt[[pat_cluster[i]]]- Data$TargetLesionLongDiam_mm[[pat_cluster[i]]][1]/10^9) > ymax){
+        ymax=max(Data$y_opt[[pat_cluster[i]]]- Data$TargetLesionLongDiam_mm[[pat_cluster[i]]][1]/10^9)
       }
-      if (min(Data$y_opt[[pat_cluster[i]]]) < ymin){
-        ymin=min(Data$y_opt[[pat_cluster[i]]])
+      if (min(Data$y_opt[[pat_cluster[i]]] - Data$TargetLesionLongDiam_mm[[pat_cluster[i]]][1]/10^9) < ymin){
+        ymin=min(Data$y_opt[[pat_cluster[i]]]- Data$TargetLesionLongDiam_mm[[pat_cluster[i]]][1]/10^9)
       }
     }
   }
@@ -263,9 +257,10 @@ plot_clusters = function(cluster, kmeans_result, Data, ylim=TRUE){
   lgd = "Cluster"
   lwd = 1.5
   col = "black"
-  for (i in 1:nb_pat_cluster){
+  # for (i in 1:nb_pat_cluster){
+  for (i in 1:2){
     pat_nb = pat_cluster[i]
-    lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], col=colors[i])
+    lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]] - Data$TargetLesionLongDiam_mm[[pat_nb]][1]/10^9, col=colors[i])
     lgd = c(lgd, paste("Opti", pat_nb))
     col = c(col, colors[i])
     lwd = c(lwd,1)

@@ -27,6 +27,7 @@ source("Opti_3.R")
 source("Predictions.R")
 source("derive.R")
 source("Global_opti.R")
+source("Uncertainty_analysis.R")
 source("Sensitivity_analysis.R")
 
 # ---- Importing Data ----
@@ -62,12 +63,9 @@ while (i <= L_tot){
   id_pat = Data_raw$Patient_Anonmyized[i]
   nb_patients_tot = nb_patients_tot + 1
   
-  nb_rec = 1 #nb of measurements for patient starting at line i
-  #list_0 = c()
+  nb_rec = 1 
+
   while ((i + nb_rec) < L_tot & Data_raw$Patient_Anonmyized[i + nb_rec] == id_pat){
-    # if (Data_raw$TargetLesionLongDiam_mm[i + nb_rec] == 0) {
-    #   list_0 = c(list_0, i+nb_rec)
-    # }
     nb_rec = nb_rec + 1
   }
   
@@ -75,13 +73,7 @@ while (i <= L_tot){
   l_target = unique(Data_raw$TargetLesionLongDiam_mm[i:index_end])
   nb_rec_unique = length(l_target)
   
-  if (nb_rec_unique >= 6){ #(nb_rec - length(list_0)) >= 6
-    # if (length(list_0) > 0) {
-    #   index_end = min(i+nb_rec-1, list_0[1]) #prend en compte le premier 0 mais pas les autres
-    # }
-    # else {
-    #   index_end = i+nb_rec-1
-    # }
+  if (nb_rec_unique >= 6){ 
 
     indices = which(!duplicated(Data_raw$TargetLesionLongDiam_mm[i:index_end]))
     l_treatment = Data_raw$Treatment_Day[i:index_end]
@@ -110,18 +102,23 @@ print(paste("No mixing patients : ", bool_verif))
 print(paste("Number of patients with too many duplicates : ", pat_elim))
 
 
+save(Data, file="./Data_processed/Data.Rda")
+
 # converting LD in mm to number of tumor cells
 vol_tc = 8*10^(-6) #mm^3/TC, volume of a tumor cell
 prop_tc = 3/4 # proportion of TC in the lesion volume
 
-for (i in 1:length(Data$Patient_Anonmyized)){
-  LD = as.numeric(Data$TargetLesionLongDiam_mm[[i]]) #this column was characters because of the "NOT EVALUABLE3 etc
+
+Data_converted = Data
+for (i in 1:length(Data_converted$Patient_Anonmyized)){
+  LD = as.numeric(Data_converted$TargetLesionLongDiam_mm[[i]]) #this column was characters because of the "NOT EVALUABLE3 etc
   vol_lesion = (4/3)*pi*(LD/2)^3 #mm^3, spherical shape of the lesion : LD is the long diameter used
   nb_tc = round(vol_lesion*prop_tc/vol_tc) #tc occupy 3/4 of the lesion volume
-  Data$TargetLesionLongDiam_mm[[i]] = nb_tc 
+  Data_converted$TargetLesionLongDiam_mm[[i]] = nb_tc 
 }
 
-save(Data, file="./Data_processed/Data.Rda")
+
+save(Data_converted, file="./Data_processed/Data_converted.Rda")
 
 # To know the number of patients in each study arm
 nb_pat_study=rep(NA,14)
@@ -131,20 +128,19 @@ names = c("Study_1_Arm_1", "Study_1_Arm_2", "Study_1_Arm_3",
           "Study_4_Arm_1", "Study_4_Arm_2", 
           "Study_5_Arm_1")
 for (i in 1:length(nb_pat_study)){
-  nb_pat_study[i] = length(Data$Study_Arm[Data$Study_Arm == names[i]])
+  nb_pat_study[i] = length(Data_converted$Study_Arm[Data_converted$Study_Arm == names[i]])
 }
 
 # ---- Data processing : building data bases ----
 #### Optimization problem 1 : finding optimal parameters for each patient ####
-Data_bis = add_op1_Data(Data)
+Data_bis = add_op1_Data(Data_converted)
 
 #goodness of fit analysis for optimal curves (results of OP1)
 Fit = goodness_fit_analysis(Data_bis)
 
 #### Optimization problem 2 : Parameter identifiability ####
 Data_ter = add_op2_Data(Data_bis)
-# Data_ter_ter = add_op2_ter_Data(Data_bis)
-Data_ter_ter = add_op2_ter_Data(Data_ter_ter)
+Data_ter_ter = add_op2_ter_Data(Data_bis)
 
 #### Predictions ####
 Data_qua = add_pred_Data(Data_ter, 2)
@@ -202,28 +198,23 @@ print(summary(Fit_OP3$nb_points_in_interval, rm.na=True))
 
 
 # ---- Global optimization ----
-database = Data_ter
+database = Data_ter_bis
 
 #visualizing the max of the min and the min of the max parameters
-bornes = global_opti(database)
+bornes = interval_analysis(database)
 print(bornes)
 
-#creating data for clustering -> takes the optimal parameters as factors in the
-# clustering because best way to take into  consideration the form of the curves
-# for each patient
-
-#### hierarchical clustering ####
 Data_clustering = clustering_extremums(database)
 distance_matrix = dist(Data_clustering[,-1], method = "euclidean")
 
-hc_result = hclust(distance_matrix, method = "ward.D2")
+hc_result = hclust(distance_matrix, method = "ward.D")
 par(mfrow=c(1,1))
 plot(hc_result, main="Patient Dendrogramme", cex = 0.5, xlab="")
 
-nb_clusters = 10
+nb_clusters = 4
 cluster_hierarchical = cutree(hc_result, k = nb_clusters)
 
-#finding the centers of each cluster
+#### Means of parameters ####
 analysis = cluster_analysis(cluster_hierarchical, nb_clusters, Data_clustering, database)
 cluster_means = analysis$cluster_means
 cluster_std = analysis$cluster_std
@@ -231,53 +222,89 @@ cluster_median = analysis$cluster_median
 cluster_Y0 = analysis$cluster_Y0
 
 
-pat_nb_clustering = 15
+pat_nb_clustering = 152
 cluster = cluster_hierarchical[[pat_nb_clustering]]
 pat_nb = Data_clustering[pat_nb_clustering,1]
+print(pat_nb)
 
 indices = Data_clustering[unique(which(cluster_hierarchical==cluster)),1]
 print(indices)
 
 plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
 
-# result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
-# 
-# parameters = result_global_opti$solution
-# plot_cluster_curve(pat_nb, parameters[1:7], database)
-
-
-#### clustering kmeans ####
-Data_clustering = clustering_extremums(database)
-
-nb_clusters=20
-
-kmeans_result = kmeans(Data_clustering[,-1], centers = nb_clusters, nstart = 25)
-print(kmeans_result)
-
-analysis = cluster_analysis(kmeans_result$cluster, nb_clusters, Data_clustering, database)
-cluster_means = analysis$cluster_means
-cluster_std = analysis$cluster_std
-cluster_median = analysis$cluster_median
-cluster_Y0 = analysis$cluster_Y0
-
-pat_nb_clustering = 45
-cluster = kmeans_result$cluster[[pat_nb_clustering]]
+#### Optimisation of parameters ####
+pat_nb_clustering = 1
+cluster = cluster_hierarchical[[pat_nb_clustering]]
 pat_nb = Data_clustering[pat_nb_clustering,1]
 
-indices = Data_clustering[unique(which(kmeans_result$cluster==cluster)),1]
-print(indices)
+indices_clustering = unique(which(cluster_hierarchical==cluster))
+print(indices_clustering)
 
-plot_cluster_curve(pat_nb, cluster_means[cluster,], database)
-# plot_cluster_curve(pat_nb, kmeans_result$centers[1:7], database)
+# result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
 
-# plot_clusters(5, kmeans_result, database)
+parameters = result_global_opti$solution
+plot_cluster_curve(pat_nb, parameters[1:7], database)
+
+# ---- Uncertainty analysis ----
+#### OP1 ####
+for (pat_nb in c(251,252)){
+  sample = sample_creation(pat_nb, Data, 10)
+  
+  Uncertainty_OP1 = compute_uncertainty_OP1(pat_nb, Data, sample)
+  save(Uncertainty_OP1, file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
+}
+
+pat_nb = 2
+load(file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
+plot_uncertainty_OP1(pat_nb, Data_bis, Uncertainty_OP1)
+
+#### Goodness of fit analysis ####
+GF_tot = goodness_fit_analysis_uncertainty(Data_bis, c(2,11,92,169,251,252))
+print(summary(GF_tot$MAE, rm.na=True))
+print(summary(sqrt(GF_tot$MSE), rm.na=True))
+print(summary(GF_tot$R2, rm.na=True))
+
+load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 251, ".Rda", sep=""))
+print(summary(GF_pat$MAE, rm.na=True))
+print(summary(sqrt(GF_pat$MSE), rm.na=True))
+print(summary(GF_pat$R2, rm.na=True))
+Opti_251 = goodness_fit(251, Data_bis)
+print(Opti_251)
+
+load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 252, ".Rda", sep=""))
+print(summary(GF_pat$MAE, rm.na=True))
+print(summary(sqrt(GF_pat$MSE), rm.na=True))
+print(summary(GF_pat$R2, rm.na=True))
+Opti_252 = goodness_fit(252, Data_bis)
+print(Opti_252)
+
+#### Predictions ####
+for (pat_nb in c(92)){
+  sample = sample_creation(pat_nb, Data, 10)
+  
+  Uncertainty_Pred = compute_uncertainty_OP1(pat_nb, Data, sample, nb_points_omitted = 2)
+  save(Uncertainty_Pred, file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+}
+
+pat_nb=92
+load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+plot_uncertainty_pred(pat_nb, Data_qua, Uncertainty_Pred)
+
+
+#### Worse predictions ####
+pat_nb=2
+load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, Uncertainty_Pred)
+
+plot_uncertainty_pred_op3(pat_nb, Data_qua, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
 
 # ---- Sensitivity analysis ----
 #### Multidimensional ####
-pat_nb=11
-N = 100
+pat_nb=3
+N = 1000
+nb_obs=5
 
-sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_ter_bis,N=N, bounds="OP2")
+sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_ter_bis, nb_obs, N=N, bounds="OP2")
 print(sobol_design_multi)
 
 
@@ -288,37 +315,3 @@ sensitivity_plot_unidimensional(pat_nb, Data_ter_ter, N=N, bounds="OP2")
 
 sobol_design_uni = sensitivity_analysis_unidimensional(pat_nb, Data_ter_bis,N=N, bounds="OP2")
 print(sobol_design_uni)
-
-
-#### tests ####
-param_bounds = data.frame(
-  p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
-  p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
-  p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3], Data_ter_bis$parameters_max[[pat_nb]][3]),
-  p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4], Data_ter_bis$parameters_max[[pat_nb]][4]),
-  p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5], Data_ter_bis$parameters_max[[pat_nb]][5]),
-  p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
-)
-param_bounds = t(param_bounds)
-
-parameters = randtoolbox::sobol(n = 1000, dim = 6)
-scaled_params = t(apply(parameters, 1, function(x) {
-  x * (param_bounds[, 2] - param_bounds[, 1]) + param_bounds[, 1]
-}))
-
-summary(scaled_params)  # Résumé des échantillons transformés
-hist(scaled_params[, 2], breaks=30, xlim = c(10^(-2), 10^2))
-
-scaled_params = t(apply(parameters, 1, function(x) {
-  10^(x * (log10(param_bounds[, 2]) - log10(param_bounds[, 1])) + log10(param_bounds[, 1]))
-}))
-df <- data.frame(param = scaled_params[, 2])
-
-# Histogramme avec échelle logarithmique sur l'axe x
-ggplot(df, aes(x = param)) +
-  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
-  scale_x_log10() +  # Echelle logarithmique pour l'axe x
-  labs(title = "Histogramme avec Axe X en Logarithmique", 
-       x = "Valeurs du paramètre (log)", 
-       y = "Fréquence") +
-  theme_minimal()

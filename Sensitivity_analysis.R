@@ -114,7 +114,7 @@ add_op2_bis_Data = function(Data_post_op1){
 
 
 # ---- Analysis ----
-sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="OP2"){
+sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N = 100, bounds="OP2"){
   #don't do the analysis on x1 because take the bounds found by OP2
   if (bounds=="OP2"){
     param_bounds = data.frame(
@@ -162,15 +162,15 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, N = 100, 
       y_est = spline(time, y, xout = time_pat)$y
 
       #Cost function
-      Cost = sum(abs(y_est-TC_pat/T0)^2)
-
+      # Cost = sum(abs(y_est-TC_pat/T0)^2)
+      Cost = y_est[nb_obs]
+      
       output[i] = Cost
     }
 
     return(output)
   }
 
-  
   # Generate samples
   X1 = randtoolbox::sobol(n = N, dim = 6)  # 6 parameters so 6 dimensions
   X2 = randtoolbox::sobol(n = N, dim = 6)
@@ -179,73 +179,6 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, N = 100, 
   return(sobol_design)
 }
 
-# Trying unidimensionally
-sensitivity_analysis_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="OP2"){
-  #don't do the analysis on x1 because take the bounds found by OP2
-  if (bounds=="OP2"){
-    param_bounds = data.frame(
-      p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
-      p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
-      p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3], Data_ter_bis$parameters_max[[pat_nb]][3]),
-      p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4], Data_ter_bis$parameters_max[[pat_nb]][4]),
-      p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5], Data_ter_bis$parameters_max[[pat_nb]][5]),
-      p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
-    )
-  }
-  else {
-    param_bounds = data.frame(
-      p1 = c(10^(-2), 10^2),   
-      p2 = c(10^(-2), 10^2),   
-      p3 = c(10^(-2), 10^2),
-      p4 = c(10^(-2), 10^2),
-      p5 = c(10^(-2), 10^2),
-      p6 = c(10^(-2), 10^2)
-    )
-  }
-  param_bounds = t(param_bounds) #want the parameters on the rows
-  
-  sobol = matrix(NA,6,1)
-  
-  for (p in 1:6){
-    model = function(parameters){
-      
-      scaled_params = matrix(rep(Data_ter_bis$parameters_opt[[pat_nb]][2:7], each=length(parameters)), length(parameters), 6)
-      scaled_params[, p] = 10^(parameters * (log10(param_bounds[p, 2]) - log10(param_bounds[p, 1])) + log10(param_bounds[p, 1]))
-      
-      TC_pat = Data_ter_bis$TargetLesionLongDiam_mm[[pat_nb]]
-      time_pat = Data_ter_bis$Treatment_Day[[pat_nb]]
-      time_pat = time_pat / (max(Data_ter_bis$Treatment_Day[[pat_nb]]) - min(Data_ter_bis$Treatment_Day[[pat_nb]]))
-      
-      T0 = 10^9
-      print(length(parameters))
-      output = rep(NA, length(parameters))
-      for (i in 1:length(parameters)){
-        para = c(Data_ter_bis$parameters_opt[[pat_nb]][1], scaled_params[i, ])
-        sol = sol_opti1(pat_nb=pat_nb, Data=Data_ter_bis, parameters=para)
-        y = sol$y
-        time = sol$time
-        
-        y_est = spline(time, y, xout = time_pat)$y
-        
-        #Cost function
-        Cost = sum(abs(y_est-TC_pat/T0)^2)
-        
-        output[i] = Cost
-        
-      }
-      print(output)
-      return(output)
-    }
-    
-    
-    X1 = randtoolbox::sobol(n=N,dim=1)
-    X2 = randtoolbox::sobol(n=N,dim=1)
-    
-    print(X1)
-    sobol[p] = sobolEff(model, as.data.frame(X1), as.data.frame(X2), nboot=100)$S[[1]]
-  }
-  return(sobol)
-}
 
 # ---- Plot ----
 sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="OP2_bis"){

@@ -3,21 +3,24 @@
 source("derive.R")
 
 # ---- Optimization pb 1 ----
-opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision = 10^(-8)){
+opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision = 10^(-8), TC_pat=NA){
   n = length(Data$TargetLesionLongDiam_mm[[pat_nb]])
   
-  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]][1:(n-nb_points_omitted)]
+  if (length(TC_pat)==1){
+    TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]][1:(n-nb_points_omitted)]
+  }
+
   time_pat = Data$Treatment_Day[[pat_nb]][1:(n-nb_points_omitted)]
   T0 = 10^9
   
   f_minimize_OP1 = function(parameters) {
     #y_pat = data for the patient
-    #temps_pat = times of data for the patient, normalised
+    #time_pat = times of data for the patient, normalised
     #para = parameters for the patient, [sigma, rho, eta, mu, delta, alpha]
     
     # Parameters
     x1 = parameters[1]
-    para <- list(#x1 = parameters[1],
+    para <- list(
       sigma = parameters[2],
       rho = parameters[3],
       eta = parameters[4],
@@ -26,7 +29,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
       alpha = parameters[7])
     
     #Initial conditions
-    init = c("X"=x1, "Y"=TC_pat[1]/T0) #y1 = y(tau=tau1) with tau1 = k2*K*T0*t/100, I take y1 = TC_pat/T0
+    init = c("X"=x1, "Y"=TC_pat[1]/T0) 
     
     # Normalised time
     time_pat = time_pat / (max(Data$Treatment_Day[[pat_nb]]) - min(Data$Treatment_Day[[pat_nb]]))
@@ -38,15 +41,6 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
     y = ODE_sol[,3]
     
     ## Find the right value for the comparison in cost function
-    
-    # Finding the closest times of time_pat in time
-    # y_est = c()
-    # index = 0
-    # for (i in 1:length(time_pat)){
-    #   index = which.min(abs(time - time_pat[i]))
-    #   y_est = c(y_est, y[index])
-    # }
-    
     # Interpolation
     y_est = spline(time, y, xout = time_pat)$y
     
@@ -88,7 +82,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
 
 
 # ---- Computing resulting functions : solve ode with the estimated parameters, given in result ----
-sol_opti1 = function(pat_nb, Data, parameters, Y0 = NA){
+sol_opti1 = function(pat_nb, Data, parameters, Y0 = NA, TC_pat=NA){
   
   x1 = parameters[1]
   para <- list(sigma = parameters[2],
@@ -100,7 +94,9 @@ sol_opti1 = function(pat_nb, Data, parameters, Y0 = NA){
   
   T0 = 10^9
   
-  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+  if (length(TC_pat)==1){
+    TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+  }
   time_pat = Data$Treatment_Day[[pat_nb]]
   
   if (is.na(Y0)){

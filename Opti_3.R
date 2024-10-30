@@ -4,17 +4,24 @@
 source("derive.R")
 
 # ---- Optimization pb 3 ----
-opti3_pat = function(pat_nb, Data){
+opti3_pat = function(pat_nb, Data, TC_pat=NA, y_pred=NA){
   theta = 0.1
   T0 = 10^9
   
   
-  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+  if (length(TC_pat)==1){
+    TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+  }
+  
   time_pat = Data$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
   
   time = Data$time[[pat_nb]]
-  y_pred = Data$y_pred[[pat_nb]]
+  
+  if (length(y_pred)==1){
+    y_pred = Data$y_pred[[pat_nb]]
+  }
+  
   parameters_pred = Data$parameters_pred[[pat_nb]]
   nb_point_omitted = Data$nb_points_omitted[pat_nb]
   
