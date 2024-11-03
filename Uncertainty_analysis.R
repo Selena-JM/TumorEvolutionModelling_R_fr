@@ -45,7 +45,7 @@ compute_uncertainty_OP1 = function(pat_nb, Data, sample, nb_points_omitted=0){
   return(results_uncertainty_propagation)
 }
 
-compute_uncertainty_OP3 = function(pat_nb, Data, results_uncertainty_Pred){
+compute_uncertainty_OP3 = function(pat_nb, Data, sample, results_uncertainty_Pred){
   time_pat = Data$Treatment_Day[[pat_nb]]
   time_pat = time_pat / (max(Data$Treatment_Day[[pat_nb]]) - min(Data$Treatment_Day[[pat_nb]]))
   time = seq(from=min(time_pat), to=max(time_pat), by=0.01) 
@@ -59,13 +59,13 @@ compute_uncertainty_OP3 = function(pat_nb, Data, results_uncertainty_Pred){
     print(paste("Sample", i))
     TC_sample = sample[i,]
     
-    result = opti3_pat(i, Data, TC_pat = TC_sample, y_pred=results_uncertainty_Pred[i,])
+    result = opti3_pat(pat_nb, Data, TC_pat = TC_sample, y_pred=results_uncertainty_Pred[i,])
     
     bounds = result$solution
     parameters_low = bounds[1:7]
     parameters_upp = bounds[8:14]
     
-    odes = compute_odes_op3(i, Data, bounds, plot=FALSE)
+    odes = compute_odes_op3(pat_nb, Data, bounds, plot=FALSE)
     
     results_uncertainty_OP3_ylow[i,] = odes$y_low
     results_uncertainty_OP3_yupp[i,] = odes$y_upp
@@ -209,12 +209,15 @@ plot_uncertainty_pred_op3 = function(pat_nb, Data, results_uncertainty_OP3_ylow,
   sorted_time_pat = sorted_time_pat/(max(sorted_time_pat) - min(sorted_time_pat))
   x_col = sorted_time_pat[length(sorted_time_pat)-Data$nb_points_omitted[pat_nb]+1]-0.01
   
-  ymin = min(min(results_uncertainty_OP3_ylow), min(Data$y_pred[[pat_nb]]), min(Data$y_opt[[pat_nb]]))
-  ymax = max(max(results_uncertainty_OP3_yupp), max(Data$y_pred[[pat_nb]]), max(Data$y_opt[[pat_nb]]))
+  ymin = min(max(min(results_uncertainty_OP3_ylow), min((Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9)*0.6)), min(Data$y_pred[[pat_nb]]), min(Data$y_opt[[pat_nb]]))
+  ymax = max(min(max(results_uncertainty_OP3_yupp), max((Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9)*1.4)), max(Data$y_pred[[pat_nb]]), max(Data$y_opt[[pat_nb]]))
+  
+  # ymin = min(min(results_uncertainty_OP3_ylow), min(Data$y_pred[[pat_nb]]), min(Data$y_opt[[pat_nb]]))
+  # ymax = max(max(results_uncertainty_OP3_yupp), max(Data$y_pred[[pat_nb]]), max(Data$y_opt[[pat_nb]]))
   
   # plot environment
   par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
-  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'red', xlab="Normalised time",
+  plot(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'n', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb), ylim=c(ymin, ymax))
   
   # Rectangle
@@ -225,15 +228,33 @@ plot_uncertainty_pred_op3 = function(pat_nb, Data, results_uncertainty_OP3_ylow,
   index_max = which.max(results_uncertainty_OP3_yupp[,ncol(results_uncertainty_OP3_yupp)])
   y_upp=results_uncertainty_OP3_yupp[index_max,]
   
+  # mask = results_uncertainty_OP3_yupp[-index_max,]
+  # index_max_bis = which.max(mask[,ncol(results_uncertainty_OP3_yupp)])
+  # mask_bis = mask[-index_max_bis,]
+  # index_max_ter = which.max(mask_bis[,ncol(results_uncertainty_OP3_yupp)])
+  # 
+  # y_upp=mask[index_max_ter,]
+  
+  
   index_min =  which.min(results_uncertainty_OP3_ylow[,ncol(results_uncertainty_OP3_ylow)])
-  y_low=results_uncertainty_OP3_ylow[index_min,]
+  y_low = results_uncertainty_OP3_ylow[index_min,]
+  
+  # min_global = min(results_uncertainty_OP3_ylow[, ncol(results_uncertainty_OP3_ylow)])
+  # mask = results_uncertainty_OP3_ylow[, ncol(results_uncertainty_OP3_ylow)] != min_global
+  # index_min_bis = which(mask)[which.min(results_uncertainty_OP3_ylow[mask, ncol(results_uncertainty_OP3_ylow)])]
+  # 
+  # y_low=results_uncertainty_OP3_ylow[index_min_bis,]
   
   
   
   lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'l', col = 'black')
-  lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], type = 'l', col = 'lightblue', lty = 4)
-  lines(Data$time[[pat_nb]], y_low, col = 'red')
-  lines(Data$time[[pat_nb]], y_upp, col = 'blue')
+  lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], type = 'l', col = 'black', lty = 4)
+  # for(i in 1:nrow(results_uncertainty_OP3_ylow)){
+  #   y_low = results_uncertainty_OP3_ylow[i,]
+  #   y_upp = results_uncertainty_OP3_yupp[i,]
+    lines(Data$time[[pat_nb]], y_low, col = 'red')
+    lines(Data$time[[pat_nb]], y_upp, col = 'blue')
+  # }
   
   points(time_pat, Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9, col = 'black')
   

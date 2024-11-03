@@ -279,23 +279,35 @@ Opti_252 = goodness_fit(252, Data_bis)
 print(Opti_252)
 
 #### Predictions ####
-for (pat_nb in c(92)){
+for (pat_nb in c(2,92)){ #c(2,11,92,169,251,252)
   sample = sample_creation(pat_nb, Data, 10)
+  save(sample, file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
   
   Uncertainty_Pred = compute_uncertainty_OP1(pat_nb, Data, sample, nb_points_omitted = 2)
   save(Uncertainty_Pred, file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
 }
 
-pat_nb=92
-load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
-plot_uncertainty_pred(pat_nb, Data_qua, Uncertainty_Pred)
+# pat_nb=251
+# load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+# plot_uncertainty_pred(pat_nb, Data_qua, Uncertainty_Pred)
 
 
 #### Worse predictions ####
-pat_nb=2
-load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
-Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, Uncertainty_Pred)
+for (pat_nb in c(2,92)){ #2, 92
+  load(file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
+  load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+  
+  if (pat_nb == 2){
+    Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample[-nrow(sample),], Uncertainty_Pred[-nrow(Uncertainty_Pred),])
+    save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
+  }
+  
+  Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample, Uncertainty_Pred)
+  save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
+}
 
+pat_nb=252
+load(file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
 plot_uncertainty_pred_op3(pat_nb, Data_qua, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
 
 # ---- Sensitivity analysis ----
