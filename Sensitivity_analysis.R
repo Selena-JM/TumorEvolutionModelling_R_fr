@@ -162,8 +162,8 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N
       y_est = spline(time, y, xout = time_pat)$y
 
       #Cost function
-      # Cost = sum(abs(y_est-TC_pat/T0)^2)
-      Cost = y_est[nb_obs]
+      Cost = sum(abs(y_est-TC_pat/T0)^2)
+      # Cost = y_est[nb_obs]
       
       output[i] = Cost
     }
@@ -172,10 +172,13 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N
   }
 
   # Generate samples
-  X1 = randtoolbox::sobol(n = N, dim = 6)  # 6 parameters so 6 dimensions
-  X2 = randtoolbox::sobol(n = N, dim = 6)
+  # X1 = randtoolbox::sobol(n = N, dim = 6)  # 6 parameters so 6 dimensions
+  # X2 = randtoolbox::sobol(n = N, dim = 6)
   
-  sobol_design = sobolSalt(model = model, X1 = as.data.frame(X1), X2 = as.data.frame(X2), nboot = 100)
+  X1 = data.frame(matrix(runif(6*N, 0, 1), ncol = 6))
+  X2 = data.frame(matrix(runif(6*N, 0, 1), ncol = 6))
+  
+  sobol_design = sobolSalt(model = model, X1 = as.data.frame(X1), X2 = as.data.frame(X2), nboot = 100, scheme = "B")
   return(sobol_design)
 }
 
@@ -269,4 +272,54 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
     ttle = paste("Patient", pat_nb)
     mtext(ttle, outer=TRUE, cex=1.5)
   }
+}
+
+sensitivity_plot_histo = function(sobol_design_multi, pat_nb){
+  results_inter = sobol_design_multi$S2
+  
+  results_inter = data.frame(interactions = rownames(results_inter), results_inter, row.names = NULL)
+  
+  colnames(results_inter)[1] = "interactions"
+  
+  # create the histogram
+  ggplot(results_inter, aes(x = reorder(interactions, original), y = original)) +
+    geom_bar(stat = "identity", fill = "steelblue", alpha = 0.7) +
+    geom_errorbar(aes(ymin = min..c.i., ymax = max..c.i.), width = 0.2) +
+    labs(title = paste("Indices de Sobol de Deuxième Ordre, patient ", pat_nb, sep=""),
+         x = "Interactions entre Paramètres",
+         y = "Valeur de l'Indice") +
+    coord_flip() +  
+    theme_minimal()
+  
+}
+
+sensitivity_plot_heatmap = function(sobol_design_multi, pat_nb){
+  parameter_names = title = c("σ", "ρ", "η", "μ", "δ", "α")
+  interaction_matrix = matrix(0, nrow = length(parameter_names), ncol = length(parameter_names),
+                               dimnames = list(parameter_names, parameter_names))
+  results_inter = sobol_design_multi$S2
+  
+  # Fill the matrix
+  index = 1
+  for (i in 1:5) {
+    for (j in (i+1):6){
+      interaction_matrix[i,j] = results_inter$original[index]
+      interaction_matrix[j,i] = results_inter$original[index]  # Pour rendre la matrice symétrique
+      index = index + 1}
+  }
+  
+  heatmap_data = as.data.frame(as.table(interaction_matrix))
+  colnames(heatmap_data) = c("Param1", "Param2", "Value")
+  
+  # Create heatmap
+  ggplot(heatmap_data, aes(Param1, Param2)) +
+    geom_tile(aes(fill = Value), color = "white") +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "yellow", 
+                         midpoint = 0, limit = c(-0.15, 0.15), 
+                         name = "Interaction Index") +
+    theme_minimal() +
+    labs(title = paste("Heatmap des indices d'interaction de Sobol, patient ", pat_nb, sep=""),
+         x = "Paramètres",
+         y = "Paramètres")
+  
 }

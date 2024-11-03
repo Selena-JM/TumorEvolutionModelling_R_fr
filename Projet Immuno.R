@@ -196,6 +196,91 @@ print(summary(sqrt(Fit_OP3$MSE), rm.na=True))
 print(summary(Fit_OP3$R2, rm.na=True))
 print(summary(Fit_OP3$nb_points_in_interval, rm.na=True))
 
+# ---- Uncertainty analysis ----
+#### Proportion of tumor size ####
+for (pat_nb in c(2, 11, 92, 169, 251, 252)){
+  print(2/as.numeric(Data$TargetLesionLongDiam_mm[[pat_nb]][1]))
+}
+
+#### OP1 ####
+for (pat_nb in c(2, 11, 92, 169, 251, 252)){
+  sample = sample_creation(pat_nb, Data, 10)
+  
+  Uncertainty_OP1 = compute_uncertainty_OP1(pat_nb, Data, sample)
+  save(Uncertainty_OP1, file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
+}
+
+pat_nb = 2
+load(file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
+plot_uncertainty_OP1(pat_nb, Data_bis, Uncertainty_OP1)
+
+#### Goodness of fit analysis ####
+GF_tot = goodness_fit_analysis_uncertainty(Data_bis, c(2,11,92,169,251,252))
+print(summary(GF_tot$MAE, rm.na=True))
+print(summary(sqrt(GF_tot$MSE), rm.na=True))
+print(summary(GF_tot$R2, rm.na=True))
+
+load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 251, ".Rda", sep=""))
+print(summary(GF_pat$MAE, rm.na=True))
+print(summary(sqrt(GF_pat$MSE), rm.na=True))
+print(summary(GF_pat$R2, rm.na=True))
+Opti_251 = goodness_fit(251, Data_bis)
+print(Opti_251)
+
+load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 252, ".Rda", sep=""))
+print(summary(GF_pat$MAE, rm.na=True))
+print(summary(sqrt(GF_pat$MSE), rm.na=True))
+print(summary(GF_pat$R2, rm.na=True))
+Opti_252 = goodness_fit(252, Data_bis)
+print(Opti_252)
+
+#### Predictions ####
+for (pat_nb in c(2,11,92,169,251,252)){
+  sample = sample_creation(pat_nb, Data, 10)
+  save(sample, file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
+  
+  Uncertainty_Pred = compute_uncertainty_OP1(pat_nb, Data, sample, nb_points_omitted = 2)
+  save(Uncertainty_Pred, file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+}
+
+pat_nb=2
+load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+plot_uncertainty_pred(pat_nb, Data_qua, Uncertainty_Pred)
+
+#### Worse predictions ####
+for (pat_nb in c(2,11,92,169,251,252)){
+  load(file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
+  load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
+  
+  if (pat_nb == 2){ #patient 2 has convergence issues with last sample
+    Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample[-nrow(sample),], Uncertainty_Pred[-nrow(Uncertainty_Pred),])
+    save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
+  }
+  else{
+    Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample, Uncertainty_Pred)
+    save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
+  }
+}
+
+pat_nb=2
+load(file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
+plot_uncertainty_pred_op3(pat_nb, Data_qua, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
+
+# ---- Sensitivity analysis ----
+#### Multidimensional ####
+pat_nb=11
+N = 1000
+nb_obs=2
+
+sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_ter_bis, nb_obs, N=N, bounds="OP2")
+
+print(sobol_design_multi)
+plot(sobol_design_multi, choice=1)
+
+sensitivity_plot_histo(sobol_design_multi, pat_nb)
+sensitivity_plot_heatmap(sobol_design_multi,2)
+
+
 
 # ---- Global optimization ----
 database = Data_ter_bis
@@ -244,86 +329,3 @@ print(indices_clustering)
 
 parameters = result_global_opti$solution
 plot_cluster_curve(pat_nb, parameters[1:7], database)
-
-# ---- Uncertainty analysis ----
-#### OP1 ####
-for (pat_nb in c(251,252)){
-  sample = sample_creation(pat_nb, Data, 10)
-  
-  Uncertainty_OP1 = compute_uncertainty_OP1(pat_nb, Data, sample)
-  save(Uncertainty_OP1, file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
-}
-
-pat_nb = 2
-load(file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
-plot_uncertainty_OP1(pat_nb, Data_bis, Uncertainty_OP1)
-
-#### Goodness of fit analysis ####
-GF_tot = goodness_fit_analysis_uncertainty(Data_bis, c(2,11,92,169,251,252))
-print(summary(GF_tot$MAE, rm.na=True))
-print(summary(sqrt(GF_tot$MSE), rm.na=True))
-print(summary(GF_tot$R2, rm.na=True))
-
-load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 251, ".Rda", sep=""))
-print(summary(GF_pat$MAE, rm.na=True))
-print(summary(sqrt(GF_pat$MSE), rm.na=True))
-print(summary(GF_pat$R2, rm.na=True))
-Opti_251 = goodness_fit(251, Data_bis)
-print(Opti_251)
-
-load(file=paste("./Data_processed/GF_analysis_uncertainty_pat", 252, ".Rda", sep=""))
-print(summary(GF_pat$MAE, rm.na=True))
-print(summary(sqrt(GF_pat$MSE), rm.na=True))
-print(summary(GF_pat$R2, rm.na=True))
-Opti_252 = goodness_fit(252, Data_bis)
-print(Opti_252)
-
-#### Predictions ####
-for (pat_nb in c(2,92)){ #c(2,11,92,169,251,252)
-  sample = sample_creation(pat_nb, Data, 10)
-  save(sample, file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
-  
-  Uncertainty_Pred = compute_uncertainty_OP1(pat_nb, Data, sample, nb_points_omitted = 2)
-  save(Uncertainty_Pred, file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
-}
-
-# pat_nb=251
-# load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
-# plot_uncertainty_pred(pat_nb, Data_qua, Uncertainty_Pred)
-
-
-#### Worse predictions ####
-for (pat_nb in c(2,92)){ #2, 92
-  load(file=paste("./Data_processed/sample_Pred_pat", pat_nb, ".Rda", sep=""))
-  load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
-  
-  if (pat_nb == 2){
-    Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample[-nrow(sample),], Uncertainty_Pred[-nrow(Uncertainty_Pred),])
-    save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
-  }
-  
-  Uncertainty_OP3 = compute_uncertainty_OP3(pat_nb, Data_qua, sample, Uncertainty_Pred)
-  save(Uncertainty_OP3, file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
-}
-
-pat_nb=252
-load(file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
-plot_uncertainty_pred_op3(pat_nb, Data_qua, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
-
-# ---- Sensitivity analysis ----
-#### Multidimensional ####
-pat_nb=3
-N = 1000
-nb_obs=5
-
-sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_ter_bis, nb_obs, N=N, bounds="OP2")
-print(sobol_design_multi)
-
-
-#### Unidimensional ####
-pat_nb=1
-N = 100
-sensitivity_plot_unidimensional(pat_nb, Data_ter_ter, N=N, bounds="OP2")
-
-sobol_design_uni = sensitivity_analysis_unidimensional(pat_nb, Data_ter_bis,N=N, bounds="OP2")
-print(sobol_design_uni)

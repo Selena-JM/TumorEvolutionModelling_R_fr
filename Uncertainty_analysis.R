@@ -228,6 +228,7 @@ plot_uncertainty_pred_op3 = function(pat_nb, Data, results_uncertainty_OP3_ylow,
   index_max = which.max(results_uncertainty_OP3_yupp[,ncol(results_uncertainty_OP3_yupp)])
   y_upp=results_uncertainty_OP3_yupp[index_max,]
   
+  
   # mask = results_uncertainty_OP3_yupp[-index_max,]
   # index_max_bis = which.max(mask[,ncol(results_uncertainty_OP3_yupp)])
   # mask_bis = mask[-index_max_bis,]
@@ -249,12 +250,12 @@ plot_uncertainty_pred_op3 = function(pat_nb, Data, results_uncertainty_OP3_ylow,
   
   lines(Data$time[[pat_nb]], Data$y_opt[[pat_nb]], type = 'l', col = 'black')
   lines(Data$time[[pat_nb]], Data$y_pred[[pat_nb]], type = 'l', col = 'black', lty = 4)
-  # for(i in 1:nrow(results_uncertainty_OP3_ylow)){
-  #   y_low = results_uncertainty_OP3_ylow[i,]
-  #   y_upp = results_uncertainty_OP3_yupp[i,]
+  for(i in 1:nrow(results_uncertainty_OP3_ylow)){
+    y_low = results_uncertainty_OP3_ylow[i,]
+    y_upp = results_uncertainty_OP3_yupp[i,]
     lines(Data$time[[pat_nb]], y_low, col = 'red')
     lines(Data$time[[pat_nb]], y_upp, col = 'blue')
-  # }
+  }
   
   points(time_pat, Data$TargetLesionLongDiam_mm[[pat_nb]]/10^9, col = 'black')
   
