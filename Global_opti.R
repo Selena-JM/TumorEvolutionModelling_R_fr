@@ -122,6 +122,7 @@ cluster_analysis = function(cluster_hierarchical, nb_clusters, Data_clustering, 
 global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, maxeval=500, precision = 10^(-8)){
   T0 = 10^9
   indices = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]
+  print(indices)
   
   f_minimize_global = function(parameters) {
     # Parameters
@@ -153,8 +154,9 @@ global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, 
       
       y_cluster_est = spline(time, y_cluster, xout = time_pat)$y
       
-      y_pat_est = spline(Data$time[[indices[pat]]], Data$y_opt[[indices[pat]]], xout = time_pat)$y
-      y_err[pat] = sum((y_pat_est - y_cluster_est)^2)
+      # y_pat = spline(Data$time[[indices[pat]]], Data$y_opt[[indices[pat]]], xout = time_pat)$y
+      y_pat = Data$TargetLesionLongDiam_mm[[indices[pat]]]/T0
+      y_err[pat] = sum((y_pat - y_cluster_est)^2)
     }
     
     #Cost function
@@ -166,7 +168,6 @@ global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, 
   # Computing of gradient
   gradient_global <- function(parameters) {
     grad <- grad(func = f_minimize_global, x = parameters)
-    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
     return(grad)
   }
   

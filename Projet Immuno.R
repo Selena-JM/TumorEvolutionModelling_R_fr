@@ -154,7 +154,7 @@ Fit_OP3 = goodness_prediction_intervals_analysis(Data_5)
 #### Local unidimensional sensitivity analysis ####
 Data_ter_bis = add_op2_bis_Data(Data_bis)
 
-# ---- Tests ----
+# ---- Plots ----
 #### DB OP1 : Data_bis ####
 pat_nb = 92
 plot_op1(pat_nb, Data_bis)
@@ -267,6 +267,11 @@ load(file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
 plot_uncertainty_pred_op3(pat_nb, Data_qua, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
 
 # ---- Sensitivity analysis ----
+#### Unidimensional ####
+pat_nb = 2
+N=100
+sensitivity_plot_unidimensional(pat_nb, Data_ter_bis, N=N, bounds="OP2_bis")
+
 #### Multidimensional ####
 pat_nb=11
 N = 1000
@@ -296,7 +301,7 @@ hc_result = hclust(distance_matrix, method = "ward.D")
 par(mfrow=c(1,1))
 plot(hc_result, main="Patient Dendrogramme", cex = 0.5, xlab="")
 
-nb_clusters = 4
+nb_clusters = 10
 cluster_hierarchical = cutree(hc_result, k = nb_clusters)
 
 #### Means of parameters ####
@@ -306,9 +311,11 @@ cluster_std = analysis$cluster_std
 cluster_median = analysis$cluster_median
 cluster_Y0 = analysis$cluster_Y0
 
+print(round(cluster_means,2))
+print(round(cluster_std,2))
 
-pat_nb_clustering = 152
-cluster = cluster_hierarchical[[pat_nb_clustering]]
+pat_nb_clustering = 20
+cluster = cluster_hierarchical[pat_nb_clustering]
 pat_nb = Data_clustering[pat_nb_clustering,1]
 print(pat_nb)
 
@@ -318,14 +325,17 @@ print(indices)
 plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
 
 #### Optimisation of parameters ####
-pat_nb_clustering = 1
-cluster = cluster_hierarchical[[pat_nb_clustering]]
+pat_nb_clustering = 7
+cluster = cluster_hierarchical[pat_nb_clustering]
 pat_nb = Data_clustering[pat_nb_clustering,1]
 
 indices_clustering = unique(which(cluster_hierarchical==cluster))
 print(indices_clustering)
 
-# result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
+result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
 
 parameters = result_global_opti$solution
 plot_cluster_curve(pat_nb, parameters[1:7], database)
+
+print(round(parameters,2))
+print(round(cluster_means[cluster,], 2))

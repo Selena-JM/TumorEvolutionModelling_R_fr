@@ -2,7 +2,7 @@
 #Uncertainty analysis on the patients selected for the report
 
 # ---- Sample creation ----
-sample_creation = function(pat_nb, Data, N){
+sample_creation = function(pat_nb, Data, N, min=-2, max=2){
   nb_points = length(Data$TargetLesionLongDiam_mm[[pat_nb]])
   sample_pat = matrix(NA, ncol = nb_points, nrow = N)
 
@@ -11,7 +11,7 @@ sample_creation = function(pat_nb, Data, N){
   prop_tc = 3/4 # proportion of TC in the lesion volume
   
   for (i in 1:N){
-    sample_pat[i,] = as.numeric(Data$TargetLesionLongDiam_mm[[pat_nb]]) + runif(nb_points,min=-2, max=2)
+    sample_pat[i,] = as.numeric(Data$TargetLesionLongDiam_mm[[pat_nb]]) + runif(nb_points,min=min, max=max)
 
     LD = sample_pat[i,] 
     vol_lesion = (4/3)*pi*(LD/2)^3 #mm^3, spherical shape of the lesion : LD is the long diameter used
