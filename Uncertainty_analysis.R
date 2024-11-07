@@ -127,7 +127,6 @@ goodness_fit_analysis_uncertainty = function(Data, patients){
 }
 
 
-
 # ---- Plots ----
 plot_uncertainty_OP1=function(pat_nb, Data, results_uncertainty_propagation){
 

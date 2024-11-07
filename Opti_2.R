@@ -62,78 +62,9 @@ compute_odes = function(pat_nb, Data, bounds, plot=FALSE){
 }
 
 # ---- Optimization pb 2 ----
-#Method 2 in report : we use the sum the difference between pmin et pmax as a cost function
-opti2_pat = function(pat_nb, Data){
-  epsilon = 0.2
-  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
-  time_pat = Data$Treatment_Day[[pat_nb]]
-  time_pat = time_pat/(max(time_pat) - min(time_pat))
-  
-  time = Data$time[[pat_nb]]
-  y_opt = Data$y_opt[[pat_nb]]
-  parameters_opt = Data$parameters_opt[[pat_nb]]
-  
-  f_minimize_OP2 = function(bounds) {
-    p_min = bounds[1:6]
-    p_max = bounds[7:12]
-    
-    #Cost function
-    Cost = -sum(p_max-p_min) #-sum bc minimize the function instead of maximize, no abs() and sum in what they wrote but weird
-    return(Cost)
-  }
-  
-  eval_jac_g_ineq = function(bounds){
-    jacobian(eval_g_ineq, bounds)
-  }
-  
-  eval_g_ineq = function(bounds){
-    odes = compute_odes(pat_nb, Data, bounds)
-    
-    y_est_min = odes$y_est_min
-    y_est_max = odes$y_est_max
-    y_est_opt = spline(time, y_opt, xout = time_pat)$y
-    
-    ineq_values = c(
-      y_est_max - (1 + epsilon) * y_est_opt,   # y_est_max <= (1 + epsilon) * y_est_opt
-      (1 - epsilon) * y_est_opt - y_est_max,   # y_est_max >= (1 - epsilon) * y_est_opt
-      y_est_min - (1 + epsilon) * y_est_opt,   # y_est_min <= (1 + epsilon) * y_est_opt
-      (1 - epsilon) * y_est_opt - y_est_min    # y_est_min >= (1 - epsilon) * y_est_opt
-    )
-  
-    return(ineq_values)
-  }
-  
-  # Computing of gradient
-  gradient_OP2 <- function(bounds) {
-    grad <- grad(func = f_minimize_OP2, x = bounds)
-    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
-    return(grad)
-  }
-  
-  # Limits for x1 and parameters
-  lower_bounds <- c(rep(10^(-2),6), parameters_opt[2:7]) #lower bound of p_min is lower bound of all para : 10^-2 and lower bound of p_max is p_opt
-  upper_bounds <- c(parameters_opt[2:7], rep(c(10^2), 6)) 
-  
-  #Starting values for the parameter optimization
-  start_para = c("p_min" = upper_bounds[1:6], "p_max" = lower_bounds[7:12])
-  
-  # Optimization
-  result <- nloptr(
-    x0 = start_para,
-    eval_f = f_minimize_OP2,
-    eval_grad_f = gradient_OP2, # Using the defined gradient
-    eval_g_ineq = eval_g_ineq,
-    eval_jac_g_ineq = eval_jac_g_ineq,
-    lb = lower_bounds,
-    ub = upper_bounds,
-    opts = list("algorithm" = "NLOPT_LD_SLSQP", "xtol_rel" = 1.0e-8, "maxeval"=500, "print_level"=0) #NLOPT_LD_MMA, NLOPT_LD_SLSQP
-  )
-  
-  return(result)
-}
 
 #Method 1 in report : we reproduce the optimization problem in the article 
-opti2_ter_pat = function(pat_nb, Data, k){
+opti2_pat_method1 = function(pat_nb, Data, k){
   epsilon = 0.2
   TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
   time_pat = Data$Treatment_Day[[pat_nb]]
@@ -203,54 +134,90 @@ opti2_ter_pat = function(pat_nb, Data, k){
   return(result)
 }
 
-# ---- Building data base for opti pb 2 ----
-#Building data base for opti pb 2 (Methode 2)
-add_op2_Data_2 = function(Data_post_op1){
-  Data_ter = Data_post_op1
+#Method 2 in report : we use the sum the difference between pmin et pmax as a cost function
+opti2_pat_method2 = function(pat_nb, Data){
+  epsilon = 0.2
+  TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
+  time_pat = Data$Treatment_Day[[pat_nb]]
+  time_pat = time_pat/(max(time_pat) - min(time_pat))
   
-  nb_pat = length(Data_ter$Patient_Anonmyized)
+  time = Data$time[[pat_nb]]
+  y_opt = Data$y_opt[[pat_nb]]
+  parameters_opt = Data$parameters_opt[[pat_nb]]
   
-  Data_ter$y_min = rep(NA,nb_pat)
-  Data_ter$y_max = rep(NA,nb_pat)
-  Data_ter$parameters_min = rep(NA,nb_pat)
-  Data_ter$parameters_max = rep(NA,nb_pat)
-  
-  for (i in 1:nb_pat){
-    print(paste("Patient", i))
+  f_minimize_OP2 = function(bounds) {
+    p_min = bounds[1:6]
+    p_max = bounds[7:12]
     
-    if (i!=124){
-      result = opti2_pat(i, Data_ter)
-      
-      bounds = result$solution
-      parameters_min = bounds[1:6]
-      parameters_max = bounds[7:12]
-      
-      odes = compute_odes(i, Data_ter, bounds)
-      
-      Data_ter$y_min[i] = I(list(odes$y_min))
-      Data_ter$y_max[i] = I(list(odes$y_max))
-      Data_ter$parameters_min[i] = I(list(parameters_min))
-      Data_ter$parameters_max[i] = I(list(parameters_max))
-      save(Data_ter, file="./Data_processed/Data_ter.Rda")
-    }
+    #Cost function
+    Cost = -sum(p_max-p_min) #-sum bc minimize the function instead of maximize, no abs() and sum in what they wrote but weird
+    return(Cost)
   }
-  save(Data_ter, file="./Data_processed/Data_ter.Rda")
-  return(Data_ter)
+  
+  eval_jac_g_ineq = function(bounds){
+    jacobian(eval_g_ineq, bounds)
+  }
+  
+  eval_g_ineq = function(bounds){
+    odes = compute_odes(pat_nb, Data, bounds)
+    
+    y_est_min = odes$y_est_min
+    y_est_max = odes$y_est_max
+    y_est_opt = spline(time, y_opt, xout = time_pat)$y
+    
+    ineq_values = c(
+      y_est_max - (1 + epsilon) * y_est_opt,   # y_est_max <= (1 + epsilon) * y_est_opt
+      (1 - epsilon) * y_est_opt - y_est_max,   # y_est_max >= (1 - epsilon) * y_est_opt
+      y_est_min - (1 + epsilon) * y_est_opt,   # y_est_min <= (1 + epsilon) * y_est_opt
+      (1 - epsilon) * y_est_opt - y_est_min    # y_est_min >= (1 - epsilon) * y_est_opt
+    )
+  
+    return(ineq_values)
+  }
+  
+  # Computing of gradient
+  gradient_OP2 <- function(bounds) {
+    grad <- grad(func = f_minimize_OP2, x = bounds)
+    # print(paste("Gradient:", paste(round(grad, 6), collapse=", ")))  # Display the gradient
+    return(grad)
+  }
+  
+  # Limits for x1 and parameters
+  lower_bounds <- c(rep(10^(-2),6), parameters_opt[2:7]) #lower bound of p_min is lower bound of all para : 10^-2 and lower bound of p_max is p_opt
+  upper_bounds <- c(parameters_opt[2:7], rep(c(10^2), 6)) 
+  
+  #Starting values for the parameter optimization
+  start_para = c("p_min" = upper_bounds[1:6], "p_max" = lower_bounds[7:12])
+  
+  # Optimization
+  result <- nloptr(
+    x0 = start_para,
+    eval_f = f_minimize_OP2,
+    eval_grad_f = gradient_OP2, # Using the defined gradient
+    eval_g_ineq = eval_g_ineq,
+    eval_jac_g_ineq = eval_jac_g_ineq,
+    lb = lower_bounds,
+    ub = upper_bounds,
+    opts = list("algorithm" = "NLOPT_LD_SLSQP", "xtol_rel" = 1.0e-8, "maxeval"=500, "print_level"=0) #NLOPT_LD_MMA, NLOPT_LD_SLSQP
+  )
+  
+  return(result)
 }
 
 
-#Building data base for opti pb 2 ter (Methode 1)
+# ---- Building data base for opti pb 2 ----
+#Building data base for opti pb 2 with method 1 (as in the article)
 add_op2_Data_1 = function(Data_post_op1){
-  Data_ter_ter = Data_post_op1
+  Data_OP2_1 = Data_post_op1
   
-  nb_pat = length(Data_ter_ter$Patient_Anonmyized)
+  nb_pat = length(Data_OP2_1$Patient_Anonmyized)
   
-  Data_ter_ter$y_min = rep(NA,nb_pat)
-  Data_ter_ter$y_max = rep(NA,nb_pat)
-  Data_ter_ter$parameters_min = rep(NA,nb_pat)
-  Data_ter_ter$parameters_max = rep(NA,nb_pat)
+  Data_OP2_1$y_min = rep(NA,nb_pat)
+  Data_OP2_1$y_max = rep(NA,nb_pat)
+  Data_OP2_1$parameters_min = rep(NA,nb_pat)
+  Data_OP2_1$parameters_max = rep(NA,nb_pat)
   
-  for (i in 15:nb_pat){
+  for (i in 1:nb_pat){
     print(paste("Patient", i))
     parameters_min = matrix(NA, 6, 6)
     parameters_max = matrix(NA, 6, 6)
@@ -258,45 +225,81 @@ add_op2_Data_1 = function(Data_post_op1){
     y_max = NULL
     for (k in 1:6){
       print(paste("Patient", i, ", parameter", k))
-      result = opti2_ter_pat(i, Data_ter_ter, k)
+      result = opti2_pat_method1(i, Data_OP2_1, k)
       
       bounds = result$solution
       parameters_min[k, ] = bounds[1:6]
       parameters_max[k, ] = bounds[7:12]
-
-      odes = compute_odes(i, Data_ter_ter, bounds)
+      
+      odes = compute_odes(i, Data_OP2_1, bounds)
       y_min = rbind(y_min, odes$y_min)
       y_max = rbind(y_max, odes$y_max)
-
+      
     }
     
-    Data_ter_ter$y_min[i] = I(list(y_min))
-    Data_ter_ter$y_max[i] = I(list(y_max))
-    Data_ter_ter$parameters_min[i] = I(list(parameters_min))
-    Data_ter_ter$parameters_max[i] = I(list(parameters_max))
-    save(Data_ter_ter, file="./Data_processed/Data_ter_ter.Rda")
+    Data_OP2_1$y_min[i] = I(list(y_min))
+    Data_OP2_1$y_max[i] = I(list(y_max))
+    Data_OP2_1$parameters_min[i] = I(list(parameters_min))
+    Data_OP2_1$parameters_max[i] = I(list(parameters_max))
+    save(Data_OP2_1, file="./Data_processed/Data_OP2_1.Rda")
   }
-  save(Data_ter_ter, file="./Data_processed/Data_ter_ter.Rda")
-  return(Data_ter_ter)
+  save(Data_OP2_1, file="./Data_processed/Data_OP2_1.Rda")
+  return(Data_OP2_1)
 }
+
+
+#Building data base for opti pb 2 with method 2
+add_op2_Data_2 = function(Data_post_op1){
+  Data_OP2_2 = Data_post_op1
+  
+  nb_pat = length(Data_OP2_2$Patient_Anonmyized)
+  
+  Data_OP2_2$y_min = rep(NA,nb_pat)
+  Data_OP2_2$y_max = rep(NA,nb_pat)
+  Data_OP2_2$parameters_min = rep(NA,nb_pat)
+  Data_OP2_2$parameters_max = rep(NA,nb_pat)
+  
+  for (i in 1:nb_pat){
+    print(paste("Patient", i))
+    
+    if (i!=124){
+      result = opti2_pat_method2(i, Data_OP2_2)
+      
+      bounds = result$solution
+      parameters_min = bounds[1:6]
+      parameters_max = bounds[7:12]
+      
+      odes = compute_odes(i, Data_OP2_2, bounds)
+      
+      Data_OP2_2$y_min[i] = I(list(odes$y_min))
+      Data_OP2_2$y_max[i] = I(list(odes$y_max))
+      Data_OP2_2$parameters_min[i] = I(list(parameters_min))
+      Data_OP2_2$parameters_max[i] = I(list(parameters_max))
+      save(Data_OP2_2, file="./Data_processed/Data_OP2_2.Rda")
+    }
+  }
+  save(Data_OP2_2, file="./Data_processed/Data_OP2_2.Rda")
+  return(Data_OP2_2)
+}
+
 
 
 # ---- Plotting results ----
 #plotting optimal curve with min and max curve with OP2 method 2
-plot_op1_op2_method2 = function(pat_nb, Data_ter){
+plot_op1_op2_method2 = function(pat_nb, Data_OP2){
   par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   
-  ymax = max(max(Data_ter$y_min[[pat_nb]]), max(Data_ter$y_max[[pat_nb]]), max(Data_ter$y_opt[[pat_nb]]),max(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymin = min(min(Data_ter$y_min[[pat_nb]]), min(Data_ter$y_max[[pat_nb]]), min(Data_ter$y_opt[[pat_nb]]),min(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymax = max(max(Data_OP2$y_min[[pat_nb]]), max(Data_OP2$y_max[[pat_nb]]), max(Data_OP2$y_opt[[pat_nb]]),max(Data_OP2$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymin = min(min(Data_OP2$y_min[[pat_nb]]), min(Data_OP2$y_max[[pat_nb]]), min(Data_OP2$y_opt[[pat_nb]]),min(Data_OP2$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   
-  plot(Data_ter$time[[pat_nb]], Data_ter$y_opt[[pat_nb]], type = 'l', col = 'black', xlab="Normalised time",
+  plot(Data_OP2$time[[pat_nb]], Data_OP2$y_opt[[pat_nb]], type = 'l', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("OP2 results for patient :", pat_nb), ylim=c(ymin,ymax))
-  lines(Data_ter$time[[pat_nb]], Data_ter$y_min[[pat_nb]], type = 'l', col = 'red')
-  lines(Data_ter$time[[pat_nb]], Data_ter$y_max[[pat_nb]], type = 'l', col = 'blue')
+  lines(Data_OP2$time[[pat_nb]], Data_OP2$y_min[[pat_nb]], type = 'l', col = 'red')
+  lines(Data_OP2$time[[pat_nb]], Data_OP2$y_max[[pat_nb]], type = 'l', col = 'blue')
   
-  time_pat = Data_ter$Treatment_Day[[pat_nb]]
+  time_pat = Data_OP2$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
-  points(time_pat, Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
+  points(time_pat, Data_OP2$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
   
   legend("topright", 
          legend = c("y_opt", "y_min", "y_max", "observations"), 
@@ -306,48 +309,6 @@ plot_op1_op2_method2 = function(pat_nb, Data_ter){
          cex = 0.5, 
          xpd=TRUE, 
          inset = c(-0.25, 0)) 
-}
-
-#plotting optimal curve with min and max curve with OP2 method 1
-plot_op1_op2_method1 = function(pat_nb, Data_ter){
-  par(mfrow=c(3,2), mar=c(2,2,2,2), oma=c(0, 0, 2, 0))
-  letters = c("σ", "ρ", "η", "μ", "δ", "α")
-  
-  parameters_opt = Data_ter$parameters_opt[[pat_nb]]
-  parameters = rep(parameters_opt[2:7], 2)
-  
-  for (p in 1:6){
-    y_min = Data_ter$y_min[[pat_nb]][p]
-    y_max = Data_ter$y_max[[pat_nb]][p]
-    
-    para_p_min = Data_ter$parameters_min[[pat_nb]][p,p]
-    para_p_max = Data_ter$parameters_max[[pat_nb]][p,p]
-    
-   
-    ymax = max(max(y_min), max(y_max), max(Data_ter$y_opt[[pat_nb]]),max(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-    ymin = min(min(y_min), min(y_max), min(Data_ter$y_opt[[pat_nb]]),min(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-    
-    plot(Data_ter$time[[pat_nb]], Data_ter$y_opt[[pat_nb]], type = 'l', col = 'black', xlab="Normalised time",
-         ylab="Nb of tumor cells / 10^9", main=paste(letters[p]," in [", round(para_p_min,3), ",", round(para_p_max,3), "]", sep=""), ylim=c(ymin,ymax))
-    lines(Data_ter$time[[pat_nb]], y_min, type = 'l', col = 'red')
-    lines(Data_ter$time[[pat_nb]], y_max, type = 'l', col = 'blue')
-    
-    time_pat = Data_ter$Treatment_Day[[pat_nb]]
-    time_pat = time_pat/(max(time_pat) - min(time_pat))
-    points(time_pat, Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
-    
-    legend("topright", 
-           legend = c("y_opt", "y_min", "y_max", "observations"), 
-           col = c("black", "red", "blue", "black"), 
-           lty = c(1, 1, 1, NA),   # lty=NA pour les points
-           pch = c(NA, NA, NA, 1), # pch=16 pour les points des mesures
-           cex = 0.6, 
-           xpd=TRUE, 
-           inset = c(-0.25, 0)) 
-    
-    ttle = paste("Patient", pat_nb)
-    mtext(ttle, outer=TRUE, cex=1.5)
-  }
 }
 
 #plot the intervals for each parameter of patient pat_nb

@@ -49,14 +49,13 @@ clustering_extremums = function(Data){
     Data_clustering[pat,8:14] = Data$parameters_opt[[pat]]
     Data_clustering[pat,15:20] = Data$parameters_max[[pat]]
   }
-  # indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
-  # Data_clustering = Data_clustering[-indices_na,]
   
-  #centrer et réduire les paramètres pour le clustering
+  #scale parameters for the clustering
   Data_clustering[,2:20] = scale(Data_clustering[,2:20], center = TRUE, scale = TRUE)
   
   return(Data_clustering)
 }
+
 
 #clustering with the 8 parameters (x1, parameters, Y0)
 clustering_para = function(Data){
@@ -68,10 +67,11 @@ clustering_para = function(Data){
     Data_clustering[pat,9] = Data$TargetLesionLongDiam_mm[[pat]][1]/10^9
   }
 
-  #centrer et réduire les paramètres pour le clustering
+  #scale parameters for the clustering
   Data_clustering[,2:9] = scale(Data_clustering[,2:9], center = TRUE, scale = TRUE)
   return(Data_clustering)
 }
+
 
 #clustering with the curves
 clustering_curves = function(Data){
@@ -85,9 +85,8 @@ clustering_curves = function(Data){
       Data_clustering[pat,2:(length(time_cluster)+1)] = spline(Data$time[[pat]], Data$y_opt[[pat]], xout = time_cluster)$y
     }
   }
-  indices_na = which(apply(Data_clustering, 1, function(row) any(is.na(row))))
-  Data_clustering = Data_clustering[-indices_na,]
-  #centrer et réduire les paramètres pour le clustering
+  
+  #scale parameters for the clustering
   Data_clustering[,2:(length(time_cluster)+1)] = scale(Data_clustering[,2:(length(time_cluster)+1)], center = TRUE, scale = TRUE)
   
   return(Data_clustering)
@@ -119,6 +118,7 @@ cluster_analysis = function(cluster_hierarchical, nb_clusters, Data_clustering, 
   return(list(cluster_means=cluster_means, cluster_std=cluster_std, cluster_median=cluster_median, cluster_Y0=cluster_Y0))
 }
 
+#Optimizing the parameters of the cluster curve
 global_opti = function(cluster_hierarchical, cluster_nb, Data_clustering, Data, maxeval=500, precision = 10^(-8)){
   T0 = 10^9
   indices = Data_clustering[unique(which(cluster_hierarchical==cluster_nb)),1]

@@ -2,7 +2,7 @@
 
 # ---- Finding parameter intervals for sensitivity analysis ----
 #finding the parameter intervals with other parameters set to optimal values
-opti2_bis_pat = function(pat_nb, Data, k){
+opti2_pat_sensi = function(pat_nb, Data, k){
   epsilon = 0.2
   TC_pat = Data$TargetLesionLongDiam_mm[[pat_nb]]
   time_pat = Data$Treatment_Day[[pat_nb]]
@@ -77,14 +77,14 @@ opti2_bis_pat = function(pat_nb, Data, k){
 
 # ---- Building data base intervals for sensitivity analysis ----
 add_op2_Data_sensi = function(Data_post_op1){
-  Data_ter_bis = Data_post_op1
+  Data_OP2_sensi = Data_post_op1
   
-  nb_pat = length(Data_ter_bis$Patient_Anonmyized)
+  nb_pat = length(Data_OP2_sensi$Patient_Anonmyized)
   
-  Data_ter_bis$y_min = rep(NA,nb_pat)
-  Data_ter_bis$y_max = rep(NA,nb_pat)
-  Data_ter_bis$parameters_min = rep(NA,nb_pat)
-  Data_ter_bis$parameters_max = rep(NA,nb_pat)
+  Data_OP2_sensi$y_min = rep(NA,nb_pat)
+  Data_OP2_sensi$y_max = rep(NA,nb_pat)
+  Data_OP2_sensi$parameters_min = rep(NA,nb_pat)
+  Data_OP2_sensi$parameters_max = rep(NA,nb_pat)
   
   for (i in 1:nb_pat){
     print(paste("Patient", i))
@@ -92,7 +92,7 @@ add_op2_Data_sensi = function(Data_post_op1){
     parameters_max = rep(NA, 6)
     for (k in 1:6){
       print(paste("Patient", i, ", parameter", k))
-      result = opti2_bis_pat(i, Data_ter_bis, k)
+      result = opti2_pat_sensi(i, Data_OP2_sensi, k)
       
       p_k = result$solution
       parameters_min[k] = p_k[1]
@@ -100,30 +100,30 @@ add_op2_Data_sensi = function(Data_post_op1){
       
     }
     bounds = c(parameters_min, parameters_max)
-    odes = compute_odes(i, Data_ter_bis, bounds)
+    odes = compute_odes(i, Data_OP2_sensi, bounds)
     
-    Data_ter_bis$y_min[i] = I(list(odes$y_min))
-    Data_ter_bis$y_max[i] = I(list(odes$y_max))
-    Data_ter_bis$parameters_min[i] = I(list(parameters_min))
-    Data_ter_bis$parameters_max[i] = I(list(parameters_max))
-    save(Data_ter_bis, file="./Data_processed/Data_ter_bis.Rda")
+    Data_OP2_sensi$y_min[i] = I(list(odes$y_min))
+    Data_OP2_sensi$y_max[i] = I(list(odes$y_max))
+    Data_OP2_sensi$parameters_min[i] = I(list(parameters_min))
+    Data_OP2_sensi$parameters_max[i] = I(list(parameters_max))
+    save(Data_OP2_sensi, file="./Data_processed/Data_OP2_sensi.Rda")
   }
-  save(Data_ter_bis, file="./Data_processed/Data_ter_bis.Rda")
-  return(Data_ter_bis)
+  save(Data_OP2_sensi, file="./Data_processed/Data_OP2_sensi.Rda")
+  return(Data_OP2_sensi)
 }
 
 
 # ---- Analysis ----
-sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs=NA, N = 100, bounds="OP2"){
+sensitivity_analysis_multidimensional = function(pat_nb, Data_OP2_sensi, nb_obs=NA, N = 100, bounds="OP2"){
   #don't do the analysis on x1 because take the bounds found by OP2
   if (bounds=="OP2"){
     param_bounds = data.frame(
-      p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
-      p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
-      p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3], Data_ter_bis$parameters_max[[pat_nb]][3]),
-      p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4], Data_ter_bis$parameters_max[[pat_nb]][4]),
-      p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5], Data_ter_bis$parameters_max[[pat_nb]][5]),
-      p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
+      p1 = c(Data_OP2_sensi$parameters_min[[pat_nb]][1], Data_OP2_sensi$parameters_max[[pat_nb]][1]),   
+      p2 = c(Data_OP2_sensi$parameters_min[[pat_nb]][2], Data_OP2_sensi$parameters_max[[pat_nb]][2]),   
+      p3 = c(Data_OP2_sensi$parameters_min[[pat_nb]][3], Data_OP2_sensi$parameters_max[[pat_nb]][3]),
+      p4 = c(Data_OP2_sensi$parameters_min[[pat_nb]][4], Data_OP2_sensi$parameters_max[[pat_nb]][4]),
+      p5 = c(Data_OP2_sensi$parameters_min[[pat_nb]][5], Data_OP2_sensi$parameters_max[[pat_nb]][5]),
+      p6 = c(Data_OP2_sensi$parameters_min[[pat_nb]][6], Data_OP2_sensi$parameters_max[[pat_nb]][6])
     )
   }
   else {
@@ -145,17 +145,17 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs=NA
       10^(x * (log10(param_bounds[, 2]) - log10(param_bounds[, 1])) + log10(param_bounds[, 1]))
     }))
 
-    TC_pat = Data_ter_bis$TargetLesionLongDiam_mm[[pat_nb]]
-    time_pat = Data_ter_bis$Treatment_Day[[pat_nb]]
-    time_pat = time_pat / (max(Data_ter_bis$Treatment_Day[[pat_nb]]) - min(Data_ter_bis$Treatment_Day[[pat_nb]]))
+    TC_pat = Data_OP2_sensi$TargetLesionLongDiam_mm[[pat_nb]]
+    time_pat = Data_OP2_sensi$Treatment_Day[[pat_nb]]
+    time_pat = time_pat / (max(Data_OP2_sensi$Treatment_Day[[pat_nb]]) - min(Data_OP2_sensi$Treatment_Day[[pat_nb]]))
 
     T0 = 10^9
 
     # output = matrix(NA, nrow=N, ncol=1)
     output = numeric(dim(scaled_params)[1])
     for (i in 1:dim(scaled_params)[1]){
-      para = c(Data_ter_bis$parameters_opt[[pat_nb]][1], scaled_params[i, ])
-      sol = sol_opti1(pat_nb=pat_nb, Data=Data_ter_bis, parameters=para)
+      para = c(Data_OP2_sensi$parameters_opt[[pat_nb]][1], scaled_params[i, ])
+      sol = sol_opti1(pat_nb=pat_nb, Data=Data_OP2_sensi, parameters=para)
       y = sol$y
       time = sol$time
 
@@ -176,10 +176,7 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs=NA
   }
 
   # Generate samples
-  # X1 = randtoolbox::sobol(n = N, dim = 6)  # 6 parameters so 6 dimensions
-  # X2 = randtoolbox::sobol(n = N, dim = 6)
-  
-  X1 = data.frame(matrix(runif(6*N, 0, 1), ncol = 6))
+  X1 = data.frame(matrix(runif(6*N, 0, 1), ncol = 6)) # 6 columns for the 6 parameters
   X2 = data.frame(matrix(runif(6*N, 0, 1), ncol = 6))
   
   sobol_design = sobolSalt(model = model, X1 = as.data.frame(X1), X2 = as.data.frame(X2), nboot = 100, scheme = "B")
@@ -188,26 +185,25 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs=NA
 
 
 # ---- Plot ----
-sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="sensi_interval"){
-  #don't do the analysis on x1 because take the bounds found by OP2
+sensitivity_plot_unidimensional = function(pat_nb, Data_OP2_sensi, N = 100, bounds="sensi_interval"){
   if (bounds=="sensi_interval"){
     param_bounds = data.frame(
-      p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
-      p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
-      p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3], Data_ter_bis$parameters_max[[pat_nb]][3]),
-      p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4], Data_ter_bis$parameters_max[[pat_nb]][4]),
-      p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5], Data_ter_bis$parameters_max[[pat_nb]][5]),
-      p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
+      p1 = c(Data_OP2_sensi$parameters_min[[pat_nb]][1], Data_OP2_sensi$parameters_max[[pat_nb]][1]),   
+      p2 = c(Data_OP2_sensi$parameters_min[[pat_nb]][2], Data_OP2_sensi$parameters_max[[pat_nb]][2]),   
+      p3 = c(Data_OP2_sensi$parameters_min[[pat_nb]][3], Data_OP2_sensi$parameters_max[[pat_nb]][3]),
+      p4 = c(Data_OP2_sensi$parameters_min[[pat_nb]][4], Data_OP2_sensi$parameters_max[[pat_nb]][4]),
+      p5 = c(Data_OP2_sensi$parameters_min[[pat_nb]][5], Data_OP2_sensi$parameters_max[[pat_nb]][5]),
+      p6 = c(Data_OP2_sensi$parameters_min[[pat_nb]][6], Data_OP2_sensi$parameters_max[[pat_nb]][6])
     )
   }
   else if (bounds=="OP2_method1"){
     param_bounds = data.frame(
-      p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1,1], Data_ter_bis$parameters_max[[pat_nb]][1,1]),   
-      p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2,2], Data_ter_bis$parameters_max[[pat_nb]][2,2]),   
-      p3 = c(Data_ter_bis$parameters_min[[pat_nb]][3,3], Data_ter_bis$parameters_max[[pat_nb]][3,3]),
-      p4 = c(Data_ter_bis$parameters_min[[pat_nb]][4,4], Data_ter_bis$parameters_max[[pat_nb]][4,4]),
-      p5 = c(Data_ter_bis$parameters_min[[pat_nb]][5,5], Data_ter_bis$parameters_max[[pat_nb]][5,5]),
-      p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6,6], Data_ter_bis$parameters_max[[pat_nb]][6,6])
+      p1 = c(Data_OP2_sensi$parameters_min[[pat_nb]][1,1], Data_OP2_sensi$parameters_max[[pat_nb]][1,1]),   
+      p2 = c(Data_OP2_sensi$parameters_min[[pat_nb]][2,2], Data_OP2_sensi$parameters_max[[pat_nb]][2,2]),   
+      p3 = c(Data_OP2_sensi$parameters_min[[pat_nb]][3,3], Data_OP2_sensi$parameters_max[[pat_nb]][3,3]),
+      p4 = c(Data_OP2_sensi$parameters_min[[pat_nb]][4,4], Data_OP2_sensi$parameters_max[[pat_nb]][4,4]),
+      p5 = c(Data_OP2_sensi$parameters_min[[pat_nb]][5,5], Data_OP2_sensi$parameters_max[[pat_nb]][5,5]),
+      p6 = c(Data_OP2_sensi$parameters_min[[pat_nb]][6,6], Data_OP2_sensi$parameters_max[[pat_nb]][6,6])
     )
   }
   else {
@@ -229,7 +225,6 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
   # Generate samples
   for (i in 1:6) {
     param_samples[((i-1)*N+1):(i*N), ] = rep(1,6)
-    # param_samples[((i-1)*N+1):(i*N), i] = randtoolbox::sobol(n = N, dim = 1)
     param_samples[((i-1)*N+1):(i*N), i] = seq(from=0, to=1, length.out = N)
   }
   
@@ -238,14 +233,14 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
     
     scaled_params = matrix(NA, nrow=N_tot, ncol=6)
     for (i in 1:6) {
-      scaled_params[((i-1)*N+1):(i*N), ] = parameters[((i-1)*N+1):(i*N), ] * matrix(rep(Data_ter_bis$parameters_opt[[pat_nb]][2:7], each=N), N, 6)
+      scaled_params[((i-1)*N+1):(i*N), ] = parameters[((i-1)*N+1):(i*N), ] * matrix(rep(Data_OP2_sensi$parameters_opt[[pat_nb]][2:7], each=N), N, 6)
       scaled_params[((i-1)*N+1):(i*N), i] = 10^(parameters[((i-1)*N+1):(i*N), i] * (log10(param_bounds[i, 2]) - log10(param_bounds[i, 1])) + log10(param_bounds[i, 1]))
     }
 
-    output = matrix(NA, nrow = N_tot, ncol = length(sol_opti1(pat_nb = pat_nb, Data = Data_ter_bis, parameters = c(Data_ter_bis$parameters_opt[[pat_nb]][1], scaled_params[1, ]))$y))
+    output = matrix(NA, nrow = N_tot, ncol = length(sol_opti1(pat_nb = pat_nb, Data = Data_OP2_sensi, parameters = c(Data_OP2_sensi$parameters_opt[[pat_nb]][1], scaled_params[1, ]))$y))
     for (i in 1:N_tot){
-      para = c(Data_ter_bis$parameters_opt[[pat_nb]][1], scaled_params[i, ])
-      sol = sol_opti1(pat_nb=pat_nb, Data=Data_ter_bis, parameters=para)$y
+      para = c(Data_OP2_sensi$parameters_opt[[pat_nb]][1], scaled_params[i, ])
+      sol = sol_opti1(pat_nb=pat_nb, Data=Data_OP2_sensi, parameters=para)$y
       output[i,] = sol
     }
     
@@ -265,11 +260,11 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
     ymax = max(output[beg:end, ])
     ymin = min(output[beg:end, ])
     
-    plot(Data_ter_bis$time[[pat_nb]], output[beg,], type='l', ylim=c(ymin,ymax), xlab="Normalised time",
+    plot(Data_OP2_sensi$time[[pat_nb]], output[beg,], type='l', ylim=c(ymin,ymax), xlab="Normalised time",
          ylab="Nb of tumor cells / 10^9", main=paste(letters[i]," in [", round(param_bounds[i,1],3), ",", round(param_bounds[i,2],3), "]", sep=""))
     
     for (j in (beg+1):end){
-      lines(Data_ter_bis$time[[pat_nb]],output[j,], type='l')
+      lines(Data_OP2_sensi$time[[pat_nb]],output[j,], type='l')
     }
     
     # ttle = paste("Unidimensional sensitivity analysis, patient", pat_nb)
@@ -277,6 +272,7 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
     mtext(ttle, outer=TRUE, cex=1.5)
   }
 }
+
 
 sensitivity_plot_histo = function(sobol_design_multi, pat_nb){
   results_inter = sobol_design_multi$S2

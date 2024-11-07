@@ -14,9 +14,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
   T0 = 10^9
   
   f_minimize_OP1 = function(parameters) {
-    #y_pat = data for the patient
-    #time_pat = times of data for the patient, normalised
-    #para = parameters for the patient, [sigma, rho, eta, mu, delta, alpha]
+    #para = parameters for the patient, in the order [sigma, rho, eta, mu, delta, alpha]
     
     # Parameters
     x1 = parameters[1]
@@ -32,7 +30,7 @@ opti1_pat = function(pat_nb, Data, nb_points_omitted=0, maxeval=500, precision =
     init = c("X"=x1, "Y"=TC_pat[1]/T0) 
     
     # Normalised time
-    time_pat = time_pat / (max(Data$Treatment_Day[[pat_nb]]) - min(Data$Treatment_Day[[pat_nb]]))
+    time_pat = time_pat / (max(Data$Treatment_Day[[pat_nb]]) - min(Data$Treatment_Day[[pat_nb]])) #normalize the time
     time = seq(from=min(time_pat), to=max(time_pat), by=0.01) #*(max(time_pat)-min(time_pat))
     
     
@@ -118,27 +116,27 @@ sol_opti1 = function(pat_nb, Data, parameters, Y0 = NA, TC_pat=NA){
 
 # ---- Building data base for opti pb 1 ----
 add_op1_Data = function(Data_preprocessed){
-  Data_bis = Data_preprocessed
+  Data_OP1 = Data_preprocessed
   
-  nb_pat = length(Data_bis$Patient_Anonmyized)
-  Data_bis$time = rep(NA,nb_pat)
-  Data_bis$y_opt = rep(NA,nb_pat)
-  Data_bis$parameters_opt = rep(NA,nb_pat)
+  nb_pat = length(Data_OP1$Patient_Anonmyized)
+  Data_OP1$time = rep(NA,nb_pat)
+  Data_OP1$y_opt = rep(NA,nb_pat)
+  Data_OP1$parameters_opt = rep(NA,nb_pat)
   
   for (i in 1:nb_pat){ 
     print(paste("Patient ",i))
-    result = opti1_pat(i, Data_bis)
+    result = opti1_pat(i, Data_OP1)
     parameters = result$solution
     
-    sol = sol_opti1(i, Data_bis, parameters)
+    sol = sol_opti1(i, Data_OP1, parameters)
     
-    Data_bis$time[i] = I(list(sol$time))
-    Data_bis$y_opt[i] = I(list(sol$y))
-    Data_bis$parameters_opt[i] = I(list(parameters))
-    save(Data_bis, file="./Data_processed/Data_bis.Rda")
+    Data_OP1$time[i] = I(list(sol$time))
+    Data_OP1$y_opt[i] = I(list(sol$y))
+    Data_OP1$parameters_opt[i] = I(list(parameters))
+    save(Data_OP1, file="./Data_processed/Data_OP1.Rda")
   }
-  save(Data_bis, file="./Data_processed/Data_bis.Rda")
-  return(Data_bis)
+  save(Data_OP1, file="./Data_processed/Data_OP1.Rda")
+  return(Data_OP1)
 }
 
 # ---- Goodness of fit analysis ----

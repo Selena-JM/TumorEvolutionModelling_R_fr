@@ -101,4 +101,6 @@ preprocessing = function(){
   for (i in 1:length(nb_pat_study)){
     nb_pat_study[i] = length(Data_converted$Study_Arm[Data_converted$Study_Arm == names[i]])
   }
+  
+  save(nb_pat_study, file="./Data_processed/nb_pat_study.Rda")
 }

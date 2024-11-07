@@ -4,10 +4,10 @@
 # by Mohammad El Wajeh, Falco Jung, Dominik Bongartz, Chrysoula Dimitra Kappatou, 
 # Narmin Ghaffari Laleh, Alexander Mitsos, Jakob Nikolas Kather
 
+
 rm(list=ls())
 
 create_data_frames = FALSE
-
 
 # ---- Libraries ----
 library("readxl")
@@ -36,30 +36,38 @@ source("Sensitivity_analysis.R")
 # ---- Data preprocessing and processing : building data bases ----
 
 if (create_data_frames == TRUE){
+  #### Preprocessing ####
   preprocessing()
   load(file = "./Data_processed/Data.Rda")
   load(file = "./Data_processed/Data_converted.Rda")
   
   #### Optimization problem 1 : finding optimal parameters for each patient ####
+  print("OP1")
   Data_OP1 = add_op1_Data(Data_converted)
   
   #goodness of fit analysis for optimal curves (results of OP1)
   Fit = goodness_fit_analysis(Data_OP1)
   
   #### Optimization problem 2 : Parameter identifiability ####
+  print("OP2 Method 1")
   Data_OP2_1 = add_op2_Data_1(Data_OP1)
+  
+  print("OP2 Method 2")
   Data_OP2_2 = add_op2_Data_2(Data_OP1)
   
   #### Predictions ####
-  Data_Pred = add_pred_Data(Data_OP2_2, 2)
+  print("Predictions")
+  Data_Pred = add_pred_Data(Data_OP2_1, 2)
   
   #### Optimization problem 3 : Parameter identifiability ####
+  print("OP3")
   Data_OP3 = add_op3_Data(Data_Pred)
   
   #Evaluation of predictions and uncertainty intervals
   Fit_OP3 = goodness_prediction_intervals_analysis(Data_OP3)
   
   #### Local unidimensional sensitivity analysis ####
+  print("OP2 sensitivity analysis")
   Data_OP2_sensi = add_op2_Data_sensi(Data_OP1)
 
 } else{
@@ -69,6 +77,7 @@ if (create_data_frames == TRUE){
     load(file=paste("./Data_processed/", file, sep=""))
   }
 }
+
 
 # ---- Plots ----
 #### DB OP1 : Data_OP1 ####
@@ -87,8 +96,8 @@ print(summary(GF$R2, rm.na=True))
 
 #### DB OP2 : Data_OP2_2 ####
 pat_nb = 2
-plot_range_para(pat_nb, Data_OP2_2, method="2")
 plot_range_para(pat_nb, Data_OP2_1, method="1")
+plot_range_para(pat_nb, Data_OP2_2, method="2")
 
 # Plot curves
 plot_op1_op2_method2(pat_nb, Data_OP2_2)
@@ -128,6 +137,7 @@ if (create_data_frames==TRUE){
   }
 }
 
+#plot results
 pat_nb = 2
 load(file=paste("./Data_processed/Uncertainty_OP1_pat", pat_nb, ".Rda", sep=""))
 plot_uncertainty_OP1(pat_nb, Data_OP1, Uncertainty_OP1)
@@ -163,6 +173,7 @@ if (create_data_frames==TRUE){
   }
 }
 
+#plot results
 pat_nb=2
 load(file=paste("./Data_processed/Uncertainty_Pred_pat", pat_nb, ".Rda", sep=""))
 plot_uncertainty_pred(pat_nb, Data_Pred, Uncertainty_Pred)
@@ -184,23 +195,27 @@ if (create_data_frames==TRUE){
   }
 }
 
+#plot results
 pat_nb=2
 load(file=paste("./Data_processed/Uncertainty_OP3_pat", pat_nb, ".Rda", sep=""))
 plot_uncertainty_pred_op3(pat_nb, Data_Pred, Uncertainty_OP3$results_uncertainty_OP3_ylow, Uncertainty_OP3$results_uncertainty_OP3_yupp)
 
+
 # ---- Sensitivity analysis ----
 #### Unidimensional ####
 pat_nb = 2
-N=100
+N=1000
 sensitivity_plot_unidimensional(pat_nb, Data_OP2_sensi, N=N)
 
 #### Multidimensional ####
 pat_nb=2
-N = 5000
+N = 1000
 
 sobol_design_multi = sensitivity_analysis_multidimensional(pat_nb, Data_OP2_sensi, N=N, bounds="OP2")
 
 print(sobol_design_multi)
+
+#plot results
 par(mfrow=c(1,1))
 plot(sobol_design_multi, choice=1)
 
@@ -208,14 +223,14 @@ sensitivity_plot_histo(sobol_design_multi, pat_nb)
 sensitivity_plot_heatmap(sobol_design_multi,2)
 
 
-
 # ---- Global optimization ----
 database = Data_OP2_sensi
 
 #visualizing the max of the min and the min of the max parameters
 bornes = interval_analysis(database)
-print(bornes)
+print(bornes) #no intersection between the parameter intervals of all the patients
 
+#trying hierarchical clustering
 Data_clustering = clustering_extremums(database)
 distance_matrix = dist(Data_clustering[,-1], method = "euclidean")
 
@@ -223,6 +238,7 @@ hc_result = hclust(distance_matrix, method = "ward.D")
 par(mfrow=c(1,1))
 plot(hc_result, main="Patient Dendrogramme", cex = 0.5, xlab="")
 
+#cutting the tree
 nb_clusters = 10
 cluster_hierarchical = cutree(hc_result, k = nb_clusters)
 
@@ -236,28 +252,32 @@ cluster_Y0 = analysis$cluster_Y0
 print(round(cluster_means,2))
 print(round(cluster_std,2))
 
-pat_nb_clustering = 20
-cluster = cluster_hierarchical[pat_nb_clustering]
-pat_nb = Data_clustering[pat_nb_clustering,1]
-print(pat_nb)
+pat_nb = 1
+cluster = cluster_hierarchical[pat_nb]
 
+#indices of the patients in the same cluster
 indices = Data_clustering[unique(which(cluster_hierarchical==cluster)),1]
 print(indices)
 
+#plot cluster curve with data points of patient pat_nb
 plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
 
-#### Optimisation of parameters ####
-pat_nb_clustering = 7
-cluster = cluster_hierarchical[pat_nb_clustering]
-pat_nb = Data_clustering[pat_nb_clustering,1]
+#### Optimization of parameters ####
+pat_nb = 1
+cluster = cluster_hierarchical[pat_nb]
 
+#indices of the patients in the same cluster
 indices_clustering = unique(which(cluster_hierarchical==cluster))
 print(indices_clustering)
 
+#function to optimize parameters of the cluster curve
 result_global_opti = global_opti(cluster_hierarchical, cluster, Data_clustering, database)
 
+#results
 parameters = result_global_opti$solution
 plot_cluster_curve(pat_nb, parameters[1:7], database)
 
+
+#### Parameter comparison between methods #### 
 print(round(parameters,2))
 print(round(cluster_means[cluster,], 2))

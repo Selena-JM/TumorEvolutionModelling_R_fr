@@ -121,19 +121,19 @@ opti3_pat = function(pat_nb, Data, TC_pat=NA, y_pred=NA){
 
 # ---- Building data base for opti pb 3 ----
 add_op3_Data = function(Data){
-  Data_5 = Data
+  Data_OP3 = Data
   
-  nb_pat = length(Data_5$Patient_Anonmyized)
+  nb_pat = length(Data_OP3$Patient_Anonmyized)
 
-  Data_5$y_low = rep(NA,nb_pat)
-  Data_5$y_upp = rep(NA,nb_pat)
-  Data_5$parameters_low = rep(NA,nb_pat)
-  Data_5$parameters_upp = rep(NA,nb_pat)
+  Data_OP3$y_low = rep(NA,nb_pat)
+  Data_OP3$y_upp = rep(NA,nb_pat)
+  Data_OP3$parameters_low = rep(NA,nb_pat)
+  Data_OP3$parameters_upp = rep(NA,nb_pat)
   
   for (i in 1:nb_pat){
     print(paste("Patient",i))
     if (i!= 14 & i!= 60 & i!= 104 & i!= 168 & i!=189){
-      result = opti3_pat(i, Data_5)
+      result = opti3_pat(i, Data_OP3)
 
       bounds = result$solution
       parameters_low = bounds[1:7]
@@ -141,15 +141,15 @@ add_op3_Data = function(Data){
       
       odes = compute_odes_op3(i, Data, bounds, plot=FALSE)
       
-      Data_5$y_low[i] = I(list(odes$y_low))
-      Data_5$y_upp[i] = I(list(odes$y_upp))
-      Data_5$parameters_low[i] = I(list(parameters_low))
-      Data_5$parameters_upp[i] = I(list(parameters_upp))
-      save(Data_5, file="./Data_processed/Data_5.Rda")
+      Data_OP3$y_low[i] = I(list(odes$y_low))
+      Data_OP3$y_upp[i] = I(list(odes$y_upp))
+      Data_OP3$parameters_low[i] = I(list(parameters_low))
+      Data_OP3$parameters_upp[i] = I(list(parameters_upp))
+      save(Data_OP3, file="./Data_processed/Data_OP3.Rda")
     }
   }
-  save(Data_5, file="./Data_processed/Data_5.Rda")
-  return(Data_5)
+  save(Data_OP3, file="./Data_processed/Data_OP3.Rda")
+  return(Data_OP3)
 }
 
 # ---- Analysis ----
@@ -278,29 +278,29 @@ plot_pred_op3 = function(pat_nb, Data){
 
 
 #plot op3 without data bases, for tests
-plot_pred_op3_test = function(pat_nb, Data_qua){  
+plot_pred_op3_test = function(pat_nb, Data_Pred){  
   
-  result = opti3_pat(pat_nb, Data_qua)
+  result = opti3_pat(pat_nb, Data_Pred)
   
   bounds = result$solution
   
-  odes = compute_odes_op3(pat_nb, Data_qua, bounds, plot=FALSE)
-  y_pred = Data_qua$y_pred[[pat_nb]]
-  time = Data_qua$time[[pat_nb]]
+  odes = compute_odes_op3(pat_nb, Data_Pred, bounds, plot=FALSE)
+  y_pred = Data_Pred$y_pred[[pat_nb]]
+  time = Data_Pred$time[[pat_nb]]
   y_low = odes$y_low
   y_upp = odes$y_upp
   
-  ymax = max(max(y_low), max(y_upp), max(y_pred),max(Data_qua$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
-  ymin = min(min(y_low), min(y_upp), min(y_pred),min(Data_qua$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymax = max(max(y_low), max(y_upp), max(y_pred),max(Data_Pred$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
+  ymin = min(min(y_low), min(y_upp), min(y_pred),min(Data_Pred$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
   
   plot(time, y_pred, type = 'l', col = 'black', xlab="Normalised time",
        ylab="Nb of tumor cells / 10^9", main=paste("OP3 results for patient :", pat_nb), ylim=c(ymin,ymax))
   lines(time, y_low, type = 'l', col = 'red')
   lines(time, y_upp, type = 'l', col = 'blue')
   
-  time_pat = Data_qua$Treatment_Day[[pat_nb]]
+  time_pat = Data_Pred$Treatment_Day[[pat_nb]]
   time_pat = time_pat/(max(time_pat) - min(time_pat))
-  points(time_pat, Data_qua$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
+  points(time_pat, Data_Pred$TargetLesionLongDiam_mm[[pat_nb]]/10^9)
   
   legend("topright",
          legend = c("y_pred", "y_low", "y_upp", "observations"),

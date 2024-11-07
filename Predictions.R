@@ -5,30 +5,30 @@ source("derive.R")
 
 # ---- Building data base for predictions ----
 add_pred_Data = function(Data, nb_points_omitted){
-  Data_qua = Data
+  Data_Pred = Data
   
-  nb_pat = length(Data_qua$Patient_Anonmyized)
+  nb_pat = length(Data_Pred$Patient_Anonmyized)
   
-  Data_qua$y_pred = rep(NA,nb_pat)
-  Data_qua$parameters_pred = rep(NA,nb_pat)
-  Data_qua$nb_points_omitted = rep(NA,nb_pat)
+  Data_Pred$y_pred = rep(NA,nb_pat)
+  Data_Pred$parameters_pred = rep(NA,nb_pat)
+  Data_Pred$nb_points_omitted = rep(NA,nb_pat)
   
-  for (i in 15:nb_pat){
+  for (i in 1:nb_pat){
     print(paste("Patient", i))
     if (i!=14){
-      result = opti1_pat(i, Data_qua, nb_points_omitted = nb_points_omitted)
+      result = opti1_pat(i, Data_Pred, nb_points_omitted = nb_points_omitted)
       parameters = result$solution
       
-      sol = sol_opti1(i, Data_qua, parameters)
+      sol = sol_opti1(i, Data_Pred, parameters)
       
-      Data_qua$y_pred[i] = I(list(sol$y))
-      Data_qua$parameters_pred[i] = I(list(parameters))
-      Data_qua$nb_points_omitted[i] = nb_points_omitted
-      save(Data_qua, file="./Data_processed/Data_qua.Rda")
+      Data_Pred$y_pred[i] = I(list(sol$y))
+      Data_Pred$parameters_pred[i] = I(list(parameters))
+      Data_Pred$nb_points_omitted[i] = nb_points_omitted
+      save(Data_Pred, file="./Data_processed/Data_Pred.Rda")
     }
   }
-  save(Data_qua, file="./Data_processed/Data_qua.Rda")
-  return(Data_qua)
+  save(Data_Pred, file="./Data_processed/Data_Pred.Rda")
+  return(Data_Pred)
 }
 
 # ---- Computing resulting functions : solve ode with the estimated parameters ----
