@@ -76,7 +76,7 @@ opti2_bis_pat = function(pat_nb, Data, k){
 }
 
 # ---- Building data base intervals for sensitivity analysis ----
-add_op2_bis_Data = function(Data_post_op1){
+add_op2_Data_sensi = function(Data_post_op1){
   Data_ter_bis = Data_post_op1
   
   nb_pat = length(Data_ter_bis$Patient_Anonmyized)
@@ -114,7 +114,7 @@ add_op2_bis_Data = function(Data_post_op1){
 
 
 # ---- Analysis ----
-sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N = 100, bounds="OP2"){
+sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs=NA, N = 100, bounds="OP2"){
   #don't do the analysis on x1 because take the bounds found by OP2
   if (bounds=="OP2"){
     param_bounds = data.frame(
@@ -162,8 +162,12 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N
       y_est = spline(time, y, xout = time_pat)$y
 
       #Cost function
-      Cost = sum(abs(y_est-TC_pat/T0)^2)
-      # Cost = y_est[nb_obs]
+      if (!is.na(nb_obs)){
+        Cost = y_est[nb_obs]
+      }
+      else {
+        Cost = sum(abs(y_est-TC_pat/T0)^2)        
+      }
       
       output[i] = Cost
     }
@@ -184,9 +188,9 @@ sensitivity_analysis_multidimensional = function(pat_nb, Data_ter_bis, nb_obs, N
 
 
 # ---- Plot ----
-sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="OP2_bis"){
+sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds="sensi_interval"){
   #don't do the analysis on x1 because take the bounds found by OP2
-  if (bounds=="OP2_bis"){
+  if (bounds=="sensi_interval"){
     param_bounds = data.frame(
       p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1], Data_ter_bis$parameters_max[[pat_nb]][1]),   
       p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2], Data_ter_bis$parameters_max[[pat_nb]][2]),   
@@ -196,7 +200,7 @@ sensitivity_plot_unidimensional = function(pat_nb, Data_ter_bis, N = 100, bounds
       p6 = c(Data_ter_bis$parameters_min[[pat_nb]][6], Data_ter_bis$parameters_max[[pat_nb]][6])
     )
   }
-  else if (bounds=="OP2_ter"){
+  else if (bounds=="OP2_method1"){
     param_bounds = data.frame(
       p1 = c(Data_ter_bis$parameters_min[[pat_nb]][1,1], Data_ter_bis$parameters_max[[pat_nb]][1,1]),   
       p2 = c(Data_ter_bis$parameters_min[[pat_nb]][2,2], Data_ter_bis$parameters_max[[pat_nb]][2,2]),   

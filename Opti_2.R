@@ -205,7 +205,7 @@ opti2_ter_pat = function(pat_nb, Data, k){
 
 # ---- Building data base for opti pb 2 ----
 #Building data base for opti pb 2 (Methode 2)
-add_op2_Data = function(Data_post_op1){
+add_op2_Data_2 = function(Data_post_op1){
   Data_ter = Data_post_op1
   
   nb_pat = length(Data_ter$Patient_Anonmyized)
@@ -240,15 +240,15 @@ add_op2_Data = function(Data_post_op1){
 
 
 #Building data base for opti pb 2 ter (Methode 1)
-add_op2_ter_Data = function(Data_post_op1){
+add_op2_Data_1 = function(Data_post_op1){
   Data_ter_ter = Data_post_op1
   
   nb_pat = length(Data_ter_ter$Patient_Anonmyized)
   
-  # Data_ter_ter$y_min = rep(NA,nb_pat)
-  # Data_ter_ter$y_max = rep(NA,nb_pat)
-  # Data_ter_ter$parameters_min = rep(NA,nb_pat)
-  # Data_ter_ter$parameters_max = rep(NA,nb_pat)
+  Data_ter_ter$y_min = rep(NA,nb_pat)
+  Data_ter_ter$y_max = rep(NA,nb_pat)
+  Data_ter_ter$parameters_min = rep(NA,nb_pat)
+  Data_ter_ter$parameters_max = rep(NA,nb_pat)
   
   for (i in 15:nb_pat){
     print(paste("Patient", i))
@@ -283,7 +283,7 @@ add_op2_ter_Data = function(Data_post_op1){
 
 # ---- Plotting results ----
 #plotting optimal curve with min and max curve with OP2 method 2
-plot_op1_op2 = function(pat_nb, Data_ter){
+plot_op1_op2_method2 = function(pat_nb, Data_ter){
   par(mar = c(5, 4, 4, 5), mfrow=c(1,1))
   
   ymax = max(max(Data_ter$y_min[[pat_nb]]), max(Data_ter$y_max[[pat_nb]]), max(Data_ter$y_opt[[pat_nb]]),max(Data_ter$TargetLesionLongDiam_mm[[pat_nb]]/10^9))
@@ -309,7 +309,7 @@ plot_op1_op2 = function(pat_nb, Data_ter){
 }
 
 #plotting optimal curve with min and max curve with OP2 method 1
-plot_op1_op2_ter = function(pat_nb, Data_ter){
+plot_op1_op2_method1 = function(pat_nb, Data_ter){
   par(mfrow=c(3,2), mar=c(2,2,2,2), oma=c(0, 0, 2, 0))
   letters = c("σ", "ρ", "η", "μ", "δ", "α")
   
@@ -351,7 +351,7 @@ plot_op1_op2_ter = function(pat_nb, Data_ter){
 }
 
 #plot the intervals for each parameter of patient pat_nb
-plot_range_para = function(pat_nb, Data, type="bis"){
+plot_range_para = function(pat_nb, Data, method="1"){
   p_opt = Data$parameters_opt[[pat_nb]]
   sigma = p_opt[2]
   rho = p_opt[3]
@@ -360,7 +360,7 @@ plot_range_para = function(pat_nb, Data, type="bis"){
   delta = p_opt[6]
   alpha = p_opt[7]
   
-  if (type == "bis"){
+  if (method == "2"){
     p_min = Data$parameters_min[[pat_nb]]
     low_value=c(p_min[1], p_min[4], p_min[5], p_min[6], p_min[2], p_min[3])
     
@@ -377,7 +377,7 @@ plot_range_para = function(pat_nb, Data, type="bis"){
       Color = brewer.pal(6, "Set2") #c("blue", "green", "lightblue", "orange", "yellow", "red")
       )
   }
-  else {
+  else if (method == "1"){
     p_min = Data$parameters_min[[pat_nb]]
     low_value=c(p_min[1, 1], p_min[4,4], p_min[5,5], p_min[6,6], p_min[2,2], p_min[3,3])
     
@@ -419,14 +419,14 @@ plot_range_para = function(pat_nb, Data, type="bis"){
 }
 
 #plot kind of histogram of frequency of parameter value in our dataset
-plot_histo = function(Data, parameters, type="bis"){
+plot_histo = function(Data, parameters, method="2"){
   nb_pat = length(Data$Patient_Anonmyized)
   
   range = 10^seq(from=-2, to=2, length.out=200)
   L = length(range)
   D_histo = matrix(0, nrow = 6, ncol = L)
   
-  if(type=="bis"){
+  if(method=="2"){
     for (i in 1:nb_pat){
       p_min = Data$parameters_min[[i]]
       p_max = Data$parameters_max[[i]]
@@ -448,7 +448,7 @@ plot_histo = function(Data, parameters, type="bis"){
       }
     }
   }
-  else {
+  else if (method == "1"){
     for (i in 1:nb_pat){
       p_min = Data$parameters_min[[i]]
       p_max = Data$parameters_max[[i]]
