@@ -5,7 +5,7 @@
 The goal of this project was to reproduce and analyze a model in a paper. The paper this project is based on is : [Can the Kuznetsov Model Replicate and Predict Cancer
 Growth in Humans?](https://link.springer.com/article/10.1007/s11538-022-01075-7)
 
-Everything is explained in detail in our report (in french), but here is a summary and a simple code explanation.
+Everything is explained in detail in our report (in french) saved in this repository, but here is a summary and a simple code explanation.
 
 ## Goal of the study
 
@@ -24,9 +24,9 @@ We reproduced all the optimization problems and analyses in this paper and we co
 
 ## Running the code 
 
-If you have the data frames : set the parameter "create_data_frames" to FALSE and you can run the whole code. The data frames are loaded and every function can be used.
+If you have the data frames : set the parameter "create_data_frames" to FALSE at the very beginning of the "Main.R" file, and you can run the whole code. The data frames are loaded and every function can be used. To visualize results just set the patient number of the patient you want to see in the parameter pat_nb just before each plotting function, in the same code section. There are also more general results that can be printed (like the goodness of fit analysis for example), eveything is already written so you just need to run the wanted section of the code. 
 
-If you don't have the data frames : set the parameter "create_data_frames" to TRUE and every data frame will be created. This process takes a lot of time because there are a lot of optimization problems to solve. Then every function can be used. 
+If you don't have the data frames : set the parameter "create_data_frames" to TRUE at the very beginning of the "Main.R" file, and every data frame will be created. This process takes a lot of time because there are a lot of optimization problems to solve. Then every function can be used. 
 
 ## Code explanation
 
