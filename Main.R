@@ -224,7 +224,7 @@ sensitivity_plot_heatmap(sobol_design_multi,2)
 
 
 # ---- Global optimization ----
-method = "2"
+method = "2" #1, 2 or sensi
 database = get(paste("Data_OP2_", method, sep=""))
 
 #visualizing the max of the min and the min of the max parameters
