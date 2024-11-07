@@ -224,14 +224,15 @@ sensitivity_plot_heatmap(sobol_design_multi,2)
 
 
 # ---- Global optimization ----
-database = Data_OP2_sensi
+method = "2"
+database = get(paste("Data_OP2_", method, sep=""))
 
 #visualizing the max of the min and the min of the max parameters
-bornes = interval_analysis(database)
+bornes = interval_analysis(database, method=method)
 print(bornes) #no intersection between the parameter intervals of all the patients
 
 #trying hierarchical clustering
-Data_clustering = clustering_extremums(database)
+Data_clustering = clustering_extremums(database, method=method)
 distance_matrix = dist(Data_clustering[,-1], method = "euclidean")
 
 hc_result = hclust(distance_matrix, method = "ward.D")
@@ -252,7 +253,7 @@ cluster_Y0 = analysis$cluster_Y0
 print(round(cluster_means,2))
 print(round(cluster_std,2))
 
-pat_nb = 1
+pat_nb = 4
 cluster = cluster_hierarchical[pat_nb]
 
 #indices of the patients in the same cluster
@@ -263,7 +264,7 @@ print(indices)
 plot_cluster_curve(pat_nb, cluster_means[cluster,],database)
 
 #### Optimization of parameters ####
-pat_nb = 1
+pat_nb = 2
 cluster = cluster_hierarchical[pat_nb]
 
 #indices of the patients in the same cluster

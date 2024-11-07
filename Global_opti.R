@@ -2,35 +2,62 @@
 source("derive.R")
 
 # ---- Global parameters authentification ----
-interval_analysis = function(Data){
+interval_analysis = function(Data, method = "2"){
   nb_pat = length(Data$Patient_Anonmyized)
-
-  borne_up_min = sapply(1:6, function(i) {
-    max(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
-  })
-  borne_low_min = sapply(1:6, function(i) {
-    min(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
-  })
-  
-  borne_low_max = sapply(1:6, function(i) {
-    min(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
-  })
-  
-  
-  borne_up_max = sapply(1:6, function(i) {
-    max(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
-  })
-  
-  
-  #The parameters are distributed across the whole spectrum of possible values
-  #Verify that max is always >= min
-  
-  l_bool = rep(NA, nb_pat)
-  for (i in 1:nb_pat){
-    l_bool[i] = length(which(Data$parameters_max[[i]] < Data$parameters_min[[i]]))
+  if (method == "2" | method == "sensi"){
+    borne_up_min = sapply(1:6, function(i) {
+      max(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
+    })
+    
+    borne_low_min = sapply(1:6, function(i) {
+      min(sapply(Data$parameters_min, function(x) x[i]), na.rm=TRUE)
+    })
+    
+    borne_low_max = sapply(1:6, function(i) {
+      min(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
+    })
+    
+    borne_up_max = sapply(1:6, function(i) {
+      max(sapply(Data$parameters_max, function(x) x[i]), na.rm=TRUE)
+    })
+    
+    
+    #The parameters are distributed across the whole spectrum of possible values
+    #Verify that max is always >= min
+    
+    l_bool = rep(NA, nb_pat)
+    for (i in 1:nb_pat){
+      l_bool[i] = length(which(Data$parameters_max[[i]] < Data$parameters_min[[i]]))
+    }
+    print(paste("Number of patients with max < min :", length(which(l_bool>0))))
   }
-  print(paste("Number of patients with max < min :", length(which(l_bool>0))))
-  
+  else {
+    borne_up_min = sapply(1:6, function(i) {
+      max(sapply(Data$parameters_min, function(x) x[i,i]), na.rm=TRUE)
+    })
+    
+    borne_low_min = sapply(1:6, function(i) {
+      min(sapply(Data$parameters_min, function(x) x[i,i]), na.rm=TRUE)
+    })
+    
+    borne_low_max = sapply(1:6, function(i) {
+      min(sapply(Data$parameters_max, function(x) x[i,i]), na.rm=TRUE)
+    })
+    
+    borne_up_max = sapply(1:6, function(i) {
+      max(sapply(Data$parameters_max, function(x) x[i,i]), na.rm=TRUE)
+    })
+    
+    
+    #The parameters are distributed across the whole spectrum of possible values
+    #Verify that max is always >= min
+    
+    l_bool = rep(NA, nb_pat)
+    for (i in 1:nb_pat){
+      l_bool[i] = length(which(Data$parameters_max[[i]] < Data$parameters_min[[i]]))
+    }
+    print(paste("Number of patients with max < min :", length(which(l_bool>0))))
+  }
   
   return(list(borne_low_min = borne_low_min, borne_up_min = borne_up_min, borne_low_max = borne_low_max, borne_up_max = borne_up_max))
 }
@@ -39,15 +66,25 @@ interval_analysis = function(Data){
 # ---- Clustering ----
 #We could try to identify clusters of patients for which the parameters are approximately the same
 
-#can use the mean between the min and max for each parameter for clustering
-clustering_extremums = function(Data){
+#clustering with the parameters and their intervals
+clustering_extremums = function(Data, method = "2"){
   nb_pat = length(Data$Patient_Anonmyized)
   Data_clustering = matrix(NA, nrow = nb_pat, ncol=20)
-  for (pat in 1:nb_pat){
-    Data_clustering[pat,1] = pat
-    Data_clustering[pat,2:7] = Data$parameters_min[[pat]]
-    Data_clustering[pat,8:14] = Data$parameters_opt[[pat]]
-    Data_clustering[pat,15:20] = Data$parameters_max[[pat]]
+  if (method == "2" | method == "sensi"){
+    for (pat in 1:nb_pat){
+      Data_clustering[pat,1] = pat
+      Data_clustering[pat,2:7] = Data$parameters_min[[pat]]
+      Data_clustering[pat,8:14] = Data$parameters_opt[[pat]]
+      Data_clustering[pat,15:20] = Data$parameters_max[[pat]]
+    }
+  }
+  else if (method == "1"){
+    for (pat in 1:nb_pat){
+      Data_clustering[pat,1] = pat
+      Data_clustering[pat,2:7] = c(Data$parameters_min[[pat]][1,1], Data$parameters_min[[pat]][2,2], Data$parameters_min[[pat]][3,3], Data$parameters_min[[pat]][4,4], Data$parameters_min[[pat]][5,5], Data$parameters_min[[pat]][6,6])
+      Data_clustering[pat,8:14] = Data$parameters_opt[[pat]]
+      Data_clustering[pat,15:20] = c(Data$parameters_max[[pat]][1,1], Data$parameters_max[[pat]][2,2], Data$parameters_max[[pat]][3,3], Data$parameters_max[[pat]][4,4], Data$parameters_max[[pat]][5,5], Data$parameters_max[[pat]][6,6])
+    }
   }
   
   #scale parameters for the clustering
