@@ -7,7 +7,7 @@ Growth in Humans?](https://link.springer.com/article/10.1007/s11538-022-01075-7)
 
 Everything is explained in detail in our report (in french), but here is a summary and a simple code explanation.
 
-**Goal of the study**
+#Goal of the study
 In this paper, the authors use a slightly simplified Kuznetsov model to try to predict the tumor evolution for patients in this database : [Classical mathematical models for prediction of response to chemotherapy and immunotherapy](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009822#pcbi.1009822.s006). This database contains the evolution of tumor long diameter of patients from five different studies designed to assess the efficiency of Atezolizumab, an immunotherapy, on Non Small Cell Lung Cancer and bladder cancer. 
 
 ** Method **
