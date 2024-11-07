@@ -30,7 +30,7 @@ If you don't have the data frames : set the parameter "create_data_frames" to TR
 
 ## Code explanation
 
-The main script is the file "Main.R", the other files contain functions that are called in "Main.R". The script is divided in 4 parts : 
+The main script is the file "Main.R", the other files contain functions that are called in "Main.R". The script is divided in 5 parts : 
 
 - Data preprocessing and processing : calling the functions to create the data frames used in the rest of the study : Data and Data_converted. Data contains the imported Data with our preprocessing and Data_converted contains the same patients but the long diameter of the tumor is converted to a number of tumor cell. Then the functions to solve each of the problems on each of the patients and create the right data frames are called. The following data frames are created: Data_OP1, Data_OP2, Data_Pred and Data_OP3 for the Data, and Fit and Fit_OP3 for the goodness of fit study.
 
