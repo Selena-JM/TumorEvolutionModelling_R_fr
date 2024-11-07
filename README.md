@@ -7,13 +7,18 @@ Growth in Humans?](https://link.springer.com/article/10.1007/s11538-022-01075-7)
 
 Everything is explained in detail in our report (in french), but here is a summary and a simple code explanation.
 
-#Goal of the study
+# Goal of the study
+
 In this paper, the authors use a slightly simplified Kuznetsov model to try to predict the tumor evolution for patients in this database : [Classical mathematical models for prediction of response to chemotherapy and immunotherapy](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009822#pcbi.1009822.s006). This database contains the evolution of tumor long diameter of patients from five different studies designed to assess the efficiency of Atezolizumab, an immunotherapy, on Non Small Cell Lung Cancer and bladder cancer. 
 
-** Method **
+# Method
+
 The article can be separated in 4 main parts : 
+
 - OP1 : find the optimal parameters of the model to fit the measure points of each patient. This problem is solved for each patient separately.
+  
 - OP2 : identifiability analysis -> finding the maximal and minimal parameters so that the resulting curve is close to the optimal curve (close by 20%). This problem is solved 6 times (1 time for each parameter) for each patient.
+  
 - predictions : solve OP1 without taking into consideration the last two points of each patient. The curve at the time of the last two points is thus a prediction.
 - OP3 : this problem aims to find the worse predictions the model could do. This problem gives two curves that are probable on the n-2 first points (not farther that 10% of the predictive curve) but that are as far away as possible from each other at the last point. Those two curves give a sort of confidence interval of the prediction.
 
